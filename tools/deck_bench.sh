@@ -74,7 +74,10 @@ if [ "$BENCH_ROUTE" = openworld ]; then
     tools/deck.sh status | grep -q "not running" && { echo "$label: game exited"; exit 1; }
     shot || continue
     if python3 tools/is_screen.py $S/bench_shot.png map; then
-      sleep 1; pad "up 2000"; sleep 3.5; pad a; sleep 12; pad a "stick 0 1 120000"
+      # Stand at the top for OW_STAND s (10) first: the view over the park is
+      # the heaviest part (12-14k draws a frame) and is inside the measurement.
+      sleep 1; pad "up 2000"; sleep 3.5; pad a; sleep 12
+      ( sleep ${OW_STAND:-10}; pad a "stick 0 1 120000" ) &
       riding=1; break
     fi
     if [ $menu = 0 ] && python3 tools/is_screen.py $S/bench_shot.png menu; then
