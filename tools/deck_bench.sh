@@ -62,7 +62,28 @@ tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text
 # Time from the game's first log line (Proton itself takes a while to start).
 for i in $(seq 1 60); do "${SSH[@]}" "test -s ReAmped3/amped3.log" && break; sleep 2; done
 start=$(date +%s); sped=0; riding=0
-while sleep 1.5; do
+if [ "$BENCH_ROUTE" = openworld ]; then
+  # BENCH_ROUTE=openworld (with BENCH_SAVE=openworld): Northstar from Loveseat,
+  # the player's busy test spot. A through the intro, title and Load a Rider
+  # (the first rider) up to the rider menu, A on "Hit the Slopes" once, then on
+  # the map: hold up (the cursor goes to Loveseat), A, and A again to set off.
+  menu=0
+  while [ $(( $(date +%s) - start )) -lt 240 ]; do
+    tools/deck.sh status | grep -q "not running" && { echo "$label: game exited"; exit 1; }
+    shot || continue
+    if python3 tools/is_screen.py $S/bench_shot.png map; then
+      sleep 1; pad "up 2000"; sleep 3.5; pad a; sleep 12; pad a "stick 0 1 120000"
+      riding=1; break
+    fi
+    if [ $menu = 0 ] && python3 tools/is_screen.py $S/bench_shot.png menu; then
+      pad a; menu=1; continue
+    fi
+    [ $menu = 0 ] && pad a
+    sleep 1
+  done
+  [ $riding = 1 ] || echo "$label: no ride (menu=$menu)"
+fi
+while [ "$BENCH_ROUTE" != openworld ] && sleep 1.5; do
   now=$(( $(date +%s) - start ))
   tools/deck.sh status | grep -q "not running" && { echo "$label: game exited"; exit 1; }
   speed=""
