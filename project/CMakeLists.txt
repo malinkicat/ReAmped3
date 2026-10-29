@@ -75,6 +75,16 @@ if(TARGET amped3_recomp)
     target_include_directories(amped3_recomp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdk-overrides")
 endif()
 
+# x86-64-v3 (AVX2, FMA), like the runtime DLLs: std::fma in the recompiled code
+# becomes one instruction instead of a C runtime call (under Proton, Wine's
+# fma() is a software routine: ~40% of the audio thread on a Steam Deck). No
+# implicit contraction, so separate PowerPC multiplies and adds stay separate.
+foreach(target amped3 amped3_recomp)
+    if(TARGET ${target} AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${target} PRIVATE -march=x86-64-v3 -ffp-contract=off)
+    endif()
+endforeach()
+
 # Patched copy of the SDK application source (pauses game input while a system
 # dialog is open); the installed SDK stays unchanged.
 get_target_property(AMPED3_HOST_SOURCES amped3 SOURCES)

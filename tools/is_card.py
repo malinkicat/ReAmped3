@@ -1,7 +1,8 @@
 """Exit 0 if a screenshot shows the yellow-titled help card (e.g. "Bunny Hop"), or with
 --hint, the white hint arrow on the left edge during gameplay.
 
-usage: is_card.py shot.png [--hint]
+usage: is_card.py shot.png [--hint] [--yoff N]
+--yoff: rows above the picture; otherwise a picture of another height is taken as stretched. rows above the game picture (e.g. 40 for 1280x720 letterboxed in 1280x800).
 """
 import struct, sys, zlib
 
@@ -29,6 +30,11 @@ for y in range(h):  # undo PNG row filters
             p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
             line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
     rows.append(line); prev = line
+if '--yoff' in sys.argv:
+    rows = rows[int(sys.argv[sys.argv.index('--yoff') + 1]):]
+if h != 720 and '--yoff' not in sys.argv:
+    # A 16:9 picture stretched to the screen (e.g. 1280x800): sample as 720 rows.
+    rows = [rows[min(h - 1, int(y * h / 720))] for y in range(720)]
 if '--hint' in sys.argv:
     # The hint box is a flat neutral grey (~203,202,204); snow is bluer or brighter.
     grey = 0

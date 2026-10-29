@@ -30,7 +30,7 @@ remote_run_script() {
 cd "$(dirname "$0")"
 here=$(pwd)
 common=$HOME/.steam/steam/steamapps/common
-proton="$common/Proton - Experimental/proton"
+proton="$common/${PROTON_NAME:-Proton - Experimental}/proton"
 [ -x "$proton" ] || proton=$(ls -d "$common"/Proton\ [0-9]*/proton 2>/dev/null | sort -V | tail -1)
 [ -x "$proton" ] || { echo "no Proton found in $common (install one from Steam)"; exit 1; }
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=$HOME/.steam/steam
@@ -58,6 +58,11 @@ echo "proton: $proton"
     sleep 1
   done
 ) > clocks.csv 2>/dev/null &
+# Pad input even when the window isn't focused (gamescope/KWin don't always
+# give a Proton window focus; SDL drops pad events without it).
+export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
+# PROTON_NAME=... (a folder in steamapps/common) picks another installed Proton;
+# tools/deck.sh run also passes DECK_ENV="VAR=value ..." through to the game.
 # Debug flags set by tools/deck.sh flags, also applied when Steam starts this.
 extra=()
 [ -f extra_args.txt ] && read -r -a extra < extra_args.txt
@@ -92,6 +97,7 @@ case "$1" in
     # session are killed when it ends. Gone again when the game exits.
     "${SSH[@]}" "cd $DECK_DIR && rm -f amped3.log && systemctl --user stop reamped3 2>/dev/null; systemctl --user reset-failed reamped3 2>/dev/null; \
       systemd-run --user --quiet --collect --unit=reamped3 --working-directory=\$HOME/$DECK_DIR \
+        ${PROTON_NAME:+--setenv=PROTON_NAME='$PROTON_NAME'} $(for e in $DECK_ENV; do printf -- "--setenv=%s " "$e"; done) \
         bash -c './run.sh $* > proton.log 2>&1' && sleep 2 && head -3 proton.log"
     ;;
   flags)
