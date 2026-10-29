@@ -32,6 +32,7 @@ set(AMPED3_SOURCES
     src/load_wait_probe.cpp
     src/fonts.cpp
     src/quit_prompt.cpp
+    src/ring_wait.cpp
 )
 
 if(WIN32)

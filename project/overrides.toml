@@ -672,3 +672,9 @@ registers = ["r3", "r4"]
 address = 0x8216796C
 name = "Amped3_LoadWaitDone"
 registers = []
+
+# Ring-space wait: sleep instead of spin under Proton (src/ring_wait.cpp, --ring_wait_sleep_us).
+[[midasm_hook]]
+address = 0x825A35E8
+name = "Amped3_RingSpaceSpin"
+registers = []
