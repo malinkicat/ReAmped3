@@ -55,6 +55,9 @@ if [ -n "$session" ]; then
   done < "/proc/$session/environ"
 fi
 echo "proton: $proton"
+# Keep the previous session's recordings (a quick second launch must not wipe
+# the one before).
+for f in threads.log clocks.csv; do [ -s "$f" ] && mv -f "$f" "$f.prev"; done
 # The recorders below start with the game: with the launcher first, wait while
 # it is open (give up if it closes without starting the game).
 wait_game() {
