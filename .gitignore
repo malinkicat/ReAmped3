@@ -33,3 +33,4 @@ tools/local.cmd
 HANDOVER.md
 build_pgo/
 pgo/
+.superpowers/
