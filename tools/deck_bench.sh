@@ -36,10 +36,12 @@ if [ "$label" = restore ]; then tools/deck.sh stop >/dev/null; restore_save; exi
 
 # Never touch the player's save or start a game while they might be playing:
 # only in Desktop Mode (plasmashell running), and only with no game running
-# other than our own transient service.
+# other than our own transient service (nor the launcher open). The bench
+# starts the game with `tools/deck.sh run`, i.e. run_game.sh: straight into
+# the game, never the launcher.
 "${SSH[@]}" "pgrep -u deck -x plasmashell >/dev/null" || { echo "$label: Deck is not in Desktop Mode; not starting"; exit 1; }
 tools/deck.sh stop >/dev/null
-"${SSH[@]}" "pgrep -f '[a]mped3\.exe' >/dev/null" && { echo "$label: a ReAmped 3 game is running on the Deck; not starting"; exit 1; }
+"${SSH[@]}" "pgrep -f '[a]mped3(_launcher)?\.exe' >/dev/null" && { echo "$label: a ReAmped 3 game is running on the Deck; not starting"; exit 1; }
 # Set the player's save aside (once: an existing stash means an earlier bench
 # was interrupted and what's in place now is a bench save).
 "${SSH[@]}" "cd $SAVES && if [ -d $SAVE ] && [ ! -d ~/ReAmped3/save_stash ]; then mkdir -p ~/ReAmped3/save_backups ~/ReAmped3/save_stash && cp -a $SAVE ~/ReAmped3/save_backups/$SAVE-\$(date +%Y%m%d-%H%M%S) && mv $SAVE ~/ReAmped3/save_stash/; else rm -rf $SAVE; fi" || exit 1

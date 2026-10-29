@@ -10,7 +10,8 @@ ReAmped 3 builds on other open source work. What was used, and from where:
 | [Project8Recomp](https://github.com/theokyr/Project8Recomp) | Steam Deck performance ideas from its ReXGlue patches: bulk writes of side-effect-free GPU registers and the blocking timer-queue wait (with its fix to disruptorplus's blocking wait), adapted in our runtime | BSD 3-Clause |
 | [Table-Tennis-Rockstar-PC](https://github.com/davidptrssvea/Table-Tennis-Rockstar-PC) | Frame graph window and present hook (`project/src/frame_graph.cpp`), the launcher's starting layout, the floating-point exception header overrides (`project/sdk-overrides/rex`), the on-demand toast dialog | MIT |
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) | FSR 1 and CAS output filters (`amd_fidelityfx_dx12.dll`) | MIT |
-| [SDL3](https://github.com/libsdl-org/SDL) | Window, input and audio (part of the ReXGlue runtime) | zlib |
+| [SDL3](https://github.com/libsdl-org/SDL) | Window, input and audio (part of the ReXGlue runtime); the launcher's window, controller input and drawing (release 3.4.18, fetched by `project/launcher_sdl` and linked into `amped3_launcher.exe`) | zlib |
+| [Dear ImGui](https://github.com/ocornut/imgui) | The launcher's drawing and text (v1.92.9b, fetched by `project/launcher_sdl` and linked into `amped3_launcher.exe`) | MIT |
 | [Exo 2](https://github.com/NDISCOVER/Exo-2.0) | Font for the launcher and the in-game prompts (`project/assets/fonts`, shipped in `fonts/`) | SIL Open Font License 1.1 (`fonts/OFL.txt`) |
 | [zlib](https://zlib.net) 1.2.3 | `project/src/native_inflate.cpp` is a port of zlib's `inffast.c` (the game's own decompressor, run natively) | zlib |
 
@@ -176,6 +177,34 @@ freely, subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
+```
+
+## Dear ImGui
+
+https://github.com/ocornut/imgui
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2014-2026 Omar Cornut
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## zlib
