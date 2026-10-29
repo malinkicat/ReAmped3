@@ -31,6 +31,8 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 foreach ($f in $files) { Copy-Item (Join-Path $root $f) $dir }
 # Licenses of the bundled runtime, FidelityFX and the code this builds on.
 Copy-Item (Join-Path $PSScriptRoot "..\THIRD_PARTY_NOTICES.md") $dir
+# Exo 2 (SIL OFL) for the launcher and the in-game prompts.
+Copy-Item -Recurse (Join-Path $PSScriptRoot "..\project\assets\fonts") (Join-Path $dir "fonts")
 foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
     Copy-Item (Join-Path $crt.FullName $dll) $dir
 }

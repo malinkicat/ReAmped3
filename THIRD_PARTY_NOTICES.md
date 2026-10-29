@@ -10,6 +10,7 @@ ReAmped 3 builds on other open source work. What was used, and from where:
 | [Table-Tennis-Rockstar-PC](https://github.com/davidptrssvea/Table-Tennis-Rockstar-PC) | Frame graph window and present hook (`project/src/frame_graph.cpp`), the launcher's starting layout, the floating-point exception header overrides (`project/sdk-overrides/rex`), the on-demand toast dialog | MIT |
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) | FSR 1 and CAS output filters (`amd_fidelityfx_dx12.dll`) | MIT |
 | [SDL3](https://github.com/libsdl-org/SDL) | Window, input and audio (part of the ReXGlue runtime) | zlib |
+| [Exo 2](https://github.com/NDISCOVER/Exo-2.0) | Font for the launcher and the in-game prompts (`project/assets/fonts`, shipped in `fonts/`) | SIL Open Font License 1.1 (`fonts/OFL.txt`) |
 | [zlib](https://zlib.net) 1.2.3 | `project/src/native_inflate.cpp` is a port of zlib's `inffast.c` (the game's own decompressor, run natively) | zlib |
 
 Brian Maguire found the cause of the UI corruption, as noted in the [Amped 3 compatibility report](https://github.com/xenia-canary/game-compatibility/issues/583).

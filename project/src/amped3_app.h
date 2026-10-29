@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <shellapi.h>
 
+#include "fonts.h"
 #include "frame_graph.h"
 #include "pix_capture.h"
 #include "hang_watch.h"
@@ -218,6 +219,8 @@ class Amped3App : public rex::ReXApp {
   // Override virtual hooks for customization:
   // void OnPostInitLogging() override {}
   // void OnLoadXexImage(std::string& xex_image) override {}
+  void OnConfigureFonts(ImFontAtlas* atlas) override { amped3::fonts::Load(atlas); }
+
   void OnCreateDialogs(rex::ui::ImGuiDrawer*) override {
     if (window()) {
       window()->SetTitle(SettingsTitle());

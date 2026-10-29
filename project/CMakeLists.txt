@@ -30,6 +30,7 @@ set(AMPED3_SOURCES
     src/cloth_probe.cpp
     src/native_inflate.cpp
     src/load_wait_probe.cpp
+    src/fonts.cpp
 )
 
 if(WIN32)
@@ -56,6 +57,12 @@ if(WIN32 AND EXISTS "${AMPED3_SDK_BIN}/rexruntime.dll")
             "${AMPED3_SDK_BIN}/amd_fidelityfx_dx12.dll" "$<TARGET_FILE_DIR:amped3>"
         VERBATIM)
 endif()
+
+# Exo 2 (SIL OFL) for the in-game prompts, next to the exe (src/fonts.cpp).
+add_custom_command(TARGET amped3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts" "$<TARGET_FILE_DIR:amped3>/fonts"
+    VERBATIM)
 
 # Keep x64 FP exceptions masked (stock SDK v0.10.0 can unmask them through MXCSR
 # writes, crashing with STATUS_FLOAT_INEXACT_RESULT). Header overrides from
