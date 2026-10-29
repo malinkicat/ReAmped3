@@ -54,6 +54,9 @@ REXCVAR_DEFINE_STRING(gpu_plugin, "", "GPU",
 namespace rex::kernel::xam {
 bool xeXamIsUIActive();
 }  // namespace rex::kernel::xam
+namespace amped3::quit_prompt {
+bool IsOpen();
+}
 
 namespace rex {
 
@@ -259,6 +262,9 @@ bool ReXApp::ConstructRuntime(const PathConfig& paths) {
         // Amped 3: a system dialog (e.g. the keyboard prompt) owns input, as on the
         // console; otherwise A on the pad reaches the game and opens a second prompt.
         if (rex::kernel::xam::xeXamIsUIActive())
+          return false;
+        // Amped 3: the quit prompt (src/quit_prompt.cpp) owns input too.
+        if (amped3::quit_prompt::IsOpen())
           return false;
         if (!debug_overlay_ && !console_overlay_ && !settings_overlay_ && !achievements_overlay_)
           return true;

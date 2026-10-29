@@ -16,6 +16,9 @@ void Request();
 namespace amped3::cloth_probe {
 void Request();
 }
+namespace amped3::quit_prompt {
+void OpenFromAnyThread();
+}
 #include "pix_capture.h"
 
 #include <rex/chrono/clock.h>
@@ -214,6 +217,11 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
         int frames = 1;
         words >> frames;
         amped3::pix::CaptureNextFrames(frames);
+        continue;
+      }
+      if (name == "quitprompt") {
+        // Test: open the quit prompt (quit_prompt.cpp).
+        amped3::quit_prompt::OpenFromAnyThread();
         continue;
       }
       if (name == "clothdump") {

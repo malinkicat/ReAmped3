@@ -15,6 +15,7 @@
 #include <rex/system/xthread.h>
 
 #include "frame_graph.h"
+#include "quit_prompt.h"
 
 #include <algorithm>
 #include <chrono>
@@ -125,6 +126,9 @@ void Amped3_PaceFrame();  // frame_rate.cpp
 void Amped3_OnFrame() {
   Amped3_PaceFrame();
   amped3::frame_graph::RecordGameFrame();
+  amped3::quit_prompt::OnPadButtons(
+      amped3::quit_prompt::PadButtons(),
+      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count());
   if (!REXCVAR_GET(fps_log) && !REXCVAR_GET(hitch_profile) && !REXCVAR_GET(frame_times)) {
     return;
   }

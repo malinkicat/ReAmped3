@@ -31,6 +31,7 @@ set(AMPED3_SOURCES
     src/native_inflate.cpp
     src/load_wait_probe.cpp
     src/fonts.cpp
+    src/quit_prompt.cpp
 )
 
 if(WIN32)

@@ -33,6 +33,7 @@
 
 #include "fonts.h"
 #include "frame_graph.h"
+#include "quit_prompt.h"
 #include "pix_capture.h"
 #include "hang_watch.h"
 #include "scripted_input.h"
@@ -228,6 +229,13 @@ class Amped3App : public rex::ReXApp {
     if (REXCVAR_GET(show_fps) && window()) {
       amped3::frame_graph::Show(window()->GetNativeWindowHandle(), REXCVAR_GET(framerate));
     }
+    amped3::quit_prompt::Initialize(app_context(), imgui_drawer(), [this] {
+      if (window()) {
+        window()->RequestClose();
+      }
+    });
+    rex::ui::RegisterBind("bind_quit_prompt", "Escape", "Quit prompt",
+                          [] { amped3::quit_prompt::Open(); });
     rex::ui::RegisterBind("bind_frame_graph", "F10", "Toggle the frame-time graph", [this] {
       if (amped3::frame_graph::IsVisible()) {
         amped3::frame_graph::Hide();
