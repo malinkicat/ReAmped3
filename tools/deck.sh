@@ -7,6 +7,8 @@
 #   tools/deck.sh deploy         build package -> ~/ReAmped3 (game files only the first time)
 #   tools/deck.sh run [args...]  start amped3.exe under Proton (Desktop Mode), extra game args passed on
 #   tools/deck.sh flags [args...]  extra game flags for every launch (Steam shortcut too); none = clear
+#   tools/deck.sh pad CMD...     scripted pad input (game started with --scripted_input=true)
+#   tools/deck.sh shot [NAME]    screenshot of the Deck screen -> private_work/deck/NAME.png
 #   tools/deck.sh stop           stop the game
 #   tools/deck.sh status         is it running?
 #   tools/deck.sh logs           fetch amped3.log and the .csv files into private_work/deck/
@@ -108,7 +110,11 @@ case "$1" in
     shift
     # As a transient user service: processes started straight from an SSH
     # session are killed when it ends. Gone again when the game exits.
-    "${SSH[@]}" "cd $DECK_DIR && rm -f amped3.log && systemctl --user stop reamped3 2>/dev/null; systemctl --user reset-failed reamped3 2>/dev/null; \
+    # Never start a second game (e.g. one the player launched from Steam), and
+    # keep the previous run's logs as *.prev.
+    if "${SSH[@]}" "systemctl --user is-active -q reamped3 || ! pgrep -f '[a]mped3\.exe' >/dev/null"; then :; else
+      echo "a ReAmped 3 game is already running on the Deck (not ours); not starting"; exit 1; fi
+    "${SSH[@]}" "cd $DECK_DIR && for f in amped3.log threads.log clocks.csv; do [ -f \$f ] && mv -f \$f \$f.prev; done; systemctl --user stop reamped3 2>/dev/null; systemctl --user reset-failed reamped3 2>/dev/null; \
       systemd-run --user --quiet --collect --unit=reamped3 --working-directory=\$HOME/$DECK_DIR \
         ${PROTON_NAME:+--setenv=PROTON_NAME='$PROTON_NAME'} $(for e in $DECK_ENV; do printf -- "--setenv=%s " "$e"; done) \
         bash -c './run.sh $* > proton.log 2>&1' && sleep 2 && head -3 proton.log"
@@ -119,10 +125,22 @@ case "$1" in
     "${SSH[@]}" "echo '$*' > $DECK_DIR/extra_args.txt && cat $DECK_DIR/extra_args.txt"
     ;;
   stop)
-    "${SSH[@]}" "systemctl --user stop reamped3 2>/dev/null; pkill -f '[a]mped3\.exe'; true"
+    # Only our own runs (the transient service), never a game the player started.
+    "${SSH[@]}" "systemctl --user stop reamped3 2>/dev/null; true"
     ;;
   status)
     "${SSH[@]}" "pgrep -fa '[a]mped3\.exe' | grep -v proton | cut -c1-80 || echo 'not running'"
+    ;;
+  pad)
+    # Scripted pad input for a game started with --scripted_input=true:
+    #   tools/deck.sh pad a "wait 1000" "stick 0 1 2000"
+    shift
+    "${SSH[@]}" "printf '%s\n' $(printf "'%s' " "$@") > $DECK_DIR/input_script.tmp && mv -f $DECK_DIR/input_script.tmp $DECK_DIR/input_script.txt"
+    ;;
+  shot)
+    # Screenshot of the Deck's screen (Desktop Mode) -> private_work/deck/<name>.png
+    "${SSH[@]}" 'p=$(pgrep -u deck -x plasmashell | head -1); for v in $(tr "\0" "\n" < /proc/$p/environ | grep -E "^(DISPLAY|XAUTHORITY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR)="); do export "$v"; done; timeout 10 spectacle -b -n -f -o $HOME/'"$DECK_DIR"'/shot.png >/dev/null 2>&1' &&
+      mkdir -p private_work/deck && scp -q -i "$KEY" "$DECK_HOST:$DECK_DIR/shot.png" "private_work/deck/${2:-shot}.png" && echo "private_work/deck/${2:-shot}.png"
     ;;
   logs)
     mkdir -p private_work/deck
@@ -135,6 +153,6 @@ case "$1" in
     "${SSH[@]}" "$@"
     ;;
   *)
-    sed -n "2,14p" "$0"
+    sed -n "2,16p" "$0"
     ;;
 esac

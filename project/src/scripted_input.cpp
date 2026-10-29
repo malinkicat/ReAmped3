@@ -27,6 +27,7 @@ void OpenFromAnyThread();
 #include <rex/input/input_driver.h>
 #include <rex/logging.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <deque>
@@ -54,6 +55,9 @@ constexpr auto kPollInterval = std::chrono::milliseconds(100);
 struct Step {
   uint16_t buttons = 0;  // 0 = wait
   std::chrono::milliseconds duration{0};
+  // Left stick (-32767..32767) and triggers (0..255) held for the step.
+  int16_t lx = 0, ly = 0;
+  uint8_t lt = 0, rt = 0;
 };
 
 const std::unordered_map<std::string, uint16_t> kButtons = {
@@ -115,6 +119,16 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
       std::memset(out_state, 0, sizeof(*out_state));
       out_state->packet_number = packet_number_;
       out_state->gamepad.buttons = buttons;
+      if (is_active()) {
+        std::lock_guard lock(mutex_);
+        if (step_started_ && !steps_.empty()) {
+          const Step& step = steps_.front();
+          out_state->gamepad.thumb_lx = step.lx;
+          out_state->gamepad.thumb_ly = step.ly;
+          out_state->gamepad.left_trigger = step.lt;
+          out_state->gamepad.right_trigger = step.rt;
+        }
+      }
     }
     return X_ERROR_SUCCESS;
   }
@@ -249,6 +263,27 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
         int seconds = 20;
         words >> seconds;
         amped3::cpu_profile::Start(seconds);
+        continue;
+      }
+      if (name == "stick") {
+        // "stick X Y ms": left stick at X, Y (-1..1, Y up) for ms, buttons up.
+        float x = 0.0f, y = 0.0f;
+        words >> x >> y >> ms;
+        Step step;
+        step.lx = int16_t(std::clamp(x, -1.0f, 1.0f) * 32767.0f);
+        step.ly = int16_t(std::clamp(y, -1.0f, 1.0f) * 32767.0f);
+        step.duration = std::chrono::milliseconds(ms < 0 ? 500 : ms);
+        steps_.push_back(step);
+        continue;
+      }
+      if (name == "lt" || name == "rt") {
+        // "rt V ms": a trigger at V (0..1) for ms.
+        float v = 0.0f;
+        words >> v >> ms;
+        Step step;
+        (name == "lt" ? step.lt : step.rt) = uint8_t(std::clamp(v, 0.0f, 1.0f) * 255.0f);
+        step.duration = std::chrono::milliseconds(ms < 0 ? 500 : ms);
+        steps_.push_back(step);
         continue;
       }
       words >> ms;

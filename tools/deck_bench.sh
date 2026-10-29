@@ -31,14 +31,30 @@ shot() {
 }
 log_has() { "${SSH[@]}" "grep -q '$1' ReAmped3/amped3.log 2>/dev/null"; }
 
-if [ "$label" = restore ]; then restore_save; exit; fi
+if [ "$label" = restore ]; then tools/deck.sh stop >/dev/null; restore_save; exit; fi
 [ -n "$label" ] || { sed -n '2,9p' "$0"; exit 1; }
 
+# Never touch the player's save or start a game while they might be playing:
+# only in Desktop Mode (plasmashell running), and only with no game running
+# other than our own transient service.
+"${SSH[@]}" "pgrep -u deck -x plasmashell >/dev/null" || { echo "$label: Deck is not in Desktop Mode; not starting"; exit 1; }
 tools/deck.sh stop >/dev/null
-"${SSH[@]}" "pgrep -x gamescope >/dev/null" && { echo "$label: Deck is in Gaming Mode (bench needs Desktop Mode)"; exit 1; }
+"${SSH[@]}" "pgrep -f '[a]mped3\.exe' >/dev/null" && { echo "$label: a ReAmped 3 game is running on the Deck; not starting"; exit 1; }
 # Set the player's save aside (once: an existing stash means an earlier bench
 # was interrupted and what's in place now is a bench save).
 "${SSH[@]}" "cd $SAVES && if [ -d $SAVE ] && [ ! -d ~/ReAmped3/save_stash ]; then mkdir -p ~/ReAmped3/save_backups ~/ReAmped3/save_stash && cp -a $SAVE ~/ReAmped3/save_backups/$SAVE-\$(date +%Y%m%d-%H%M%S) && mv $SAVE ~/ReAmped3/save_stash/; else rm -rf $SAVE; fi" || exit 1
+# BENCH_SAVE=name: start from a copy of ~/ReAmped3/bench_saves/<name> instead
+# of a fresh rider (e.g. openworld, a copy of a save that reached the open world).
+if [ -n "$BENCH_SAVE" ]; then
+  "${SSH[@]}" "cp -a ~/ReAmped3/bench_saves/$BENCH_SAVE/$SAVE $SAVES/" || exit 1
+fi
+if [ "$label" = explore ]; then
+  # Leave the game running for working out a route by hand (tools/deck.sh pad /
+  # shot); `tools/deck_bench.sh restore` afterwards puts the player's save back.
+  tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text=Rider --fps_log=true "$@" >/dev/null
+  echo "exploring: tools/deck.sh pad ... / tools/deck.sh shot NAME; then tools/deck_bench.sh restore"
+  exit 0
+fi
 trap restore_save EXIT
 "${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt"
 tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true "$@" >/dev/null || exit 1
