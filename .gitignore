@@ -34,3 +34,4 @@ HANDOVER.md
 build_pgo/
 pgo/
 .superpowers/
+.claude/
