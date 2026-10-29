@@ -1,0 +1,33 @@
+# Original game material and all local generated/runtime output stay private.
+*.iso
+*.xex
+*.rpf
+*.bin
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.zip
+*.log
+*.csv
+*.png
+*.pyc
+__pycache__/
+# Recompiled game code (derived from the game's executable).
+project/generated/
+# Builds, toolchain, packages.
+build/
+dist/
+.tools/
+project/sdk-bin/
+# Local notes (machines, saves, logs, dumps).
+private/
+private_work/
+.vs/
+.vscode/
+# Machine-specific settings (see tools/local.env.example, tools/local.cmd.example).
+tools/local.env
+tools/local.cmd
+# Private working notes.
+HANDOVER.md

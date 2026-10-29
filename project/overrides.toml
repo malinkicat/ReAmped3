@@ -1,0 +1,636 @@
+# ReXGlue function overrides for Amped 3 (545407D4)
+
+[functions]
+# Tail-branch targets the analyzer does not discover on its own
+0x8274BD28 = {}
+0x827FDBC8 = {}
+0x82748350 = {}
+
+# Indirect call targets found at runtime ("Call to invalid or unregistered function")
+0x82831090 = {}
+
+# Vtable / callback-table entries the analyzer merged into the preceding function
+# (tools/find_indirect.py + tools/filter_jumptables.py, pass 1)
+0x8215A4E0 = {}
+0x82170848 = {}
+0x8217FB48 = {}
+0x8217FB58 = {}
+0x8217FB68 = {}
+0x8217FB78 = {}
+# 0x82199278 is a branch target inside sub_82199198 (it branches back into the
+# parent epilogue), not a function; registering it splits the parent.
+0x821CF1F0 = {}
+0x821D9E18 = {}
+0x821E6F20 = {}
+0x822373D8 = {}
+0x822B12B0 = {}
+0x822C3860 = {}
+0x82335B30 = {}
+0x8239F1A8 = {}
+0x82459CC8 = {}
+0x824AADB8 = {}
+0x824BA810 = {}
+0x824CDBB0 = {}
+0x824F7640 = {}
+0x8251EFD8 = {}
+0x825246C8 = {}
+0x82525BA8 = {}
+0x8252CB30 = {}
+0x82530668 = {}
+0x825451E0 = {}
+0x82545C28 = {}
+0x8254A7B0 = {}
+0x825583B8 = {}
+0x8256C298 = {}
+0x825735B8 = {}
+0x8257CA28 = {}
+0x825E6BB0 = {}
+0x825E6C38 = {}
+0x825E6C60 = {}
+0x825E6C88 = {}
+0x825E6CB0 = {}
+0x825E70E0 = {}
+0x8263A000 = {}
+0x826C8FE8 = {}
+0x826F7938 = {}
+0x82749450 = {}
+0x82749458 = {}
+0x82749460 = {}
+0x82750398 = {}
+0x827503B0 = {}
+0x827503C8 = {}
+0x827520E0 = {}
+0x827520E8 = {}
+0x827520F0 = {}
+0x827520F8 = {}
+0x82752118 = {}
+0x82752120 = {}
+0x82752138 = {}
+0x827E0AC4 = {}
+0x827E9A70 = {}
+0x827EC1CC = {}
+
+# Forwarding thunks hidden in gaps after a bctr, reached by computed address
+# (tools/find_gaps.py; first seen as a crash at 0x823E78B0 while loading)
+0x823E78B0 = {}
+0x823E78C8 = {}
+0x823E78E0 = {}
+0x823E78F8 = {}
+0x823E7910 = {}
+0x825E7100 = {}
+0x825E7110 = {}
+0x825E7120 = {}
+0x825E7130 = {}
+0x825E7140 = {}
+0x825E7150 = {}
+0x825E7160 = {}
+0x825E7170 = {}
+0x825E7180 = {}
+0x825E7190 = {}
+
+# Callback addresses built with lis+addi and passed as arguments or stored
+# (tools/classify_lis_targets.py; first seen as a crash at 0x82202F08)
+0x82195568 = {}
+0x82195E68 = {}
+0x821BF488 = {}
+0x821FC7E0 = {}
+0x82202F08 = {}
+0x82234B28 = {}
+0x82243140 = {}
+0x82266020 = {}
+0x82404AC0 = {}
+0x82483564 = {}
+0x82516888 = {}
+0x82795DE0 = {}
+0x827DD09C = {}
+
+# Render-thread shutdown race: re-signal CommitRender before joining the render
+# thread (src/render_shutdown_fix.cpp).
+[[midasm_hook]]
+address = 0x8228D4A0
+name = "Amped3_BeforeThreadJoin"
+registers = ["r30"]
+
+# Frame timing: the game's only VdSwap call (src/frame_stats.cpp).
+[[midasm_hook]]
+address = 0x825AB7F4
+name = "Amped3_OnFrame"
+registers = []
+
+# Debug: stopwatch reads (src/clock_probe.cpp, --clock_probe=true).
+[[midasm_hook]]
+address = 0x82194654
+name = "Amped3_Clock_82194654"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x821969D8
+name = "Amped3_Clock_821969D8"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x8219717C
+name = "Amped3_Clock_8219717C"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x8227F610
+name = "Amped3_Clock_8227F610"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x822CB14C
+name = "Amped3_Clock_822CB14C"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x822CDDCC
+name = "Amped3_Clock_822CDDCC"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x822E977C
+name = "Amped3_Clock_822E977C"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x823B55C8
+name = "Amped3_Clock_823B55C8"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x823B55DC
+name = "Amped3_Clock_823B55DC"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x823B5668
+name = "Amped3_Clock_823B5668"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x823EAD98
+name = "Amped3_Clock_823EAD98"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x82496A18
+name = "Amped3_Clock_82496A18"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x82499CE4
+name = "Amped3_Clock_82499CE4"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x8249D6EC
+name = "Amped3_Clock_8249D6EC"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x824A4E14
+name = "Amped3_Clock_824A4E14"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x824A4EB0
+name = "Amped3_Clock_824A4EB0"
+registers = ["f1"]
+
+# Frame-rate unlock: rewrite the present interval (src/frame_rate.cpp).
+[[midasm_hook]]
+address = 0x825AB430
+name = "Amped3_PresentInterval"
+registers = ["r3"]
+
+# Debug: code that loads a 1/60 or 1/30 s constant (src/step_probe.cpp, --step_probe=true).
+[[midasm_hook]]
+address = 0x821C8DCC
+name = "Amped3_Step_821C8DCC"
+registers = []
+
+[[midasm_hook]]
+address = 0x8221B258
+name = "Amped3_Step_8221B258"
+registers = []
+
+[[midasm_hook]]
+address = 0x8224A7A4
+name = "Amped3_Step_8224A7A4"
+registers = []
+
+[[midasm_hook]]
+address = 0x822EB180
+name = "Amped3_Step_822EB180"
+registers = []
+
+[[midasm_hook]]
+address = 0x8235BBC8
+name = "Amped3_Step_8235BBC8"
+registers = []
+
+[[midasm_hook]]
+address = 0x823A7184
+name = "Amped3_Step_823A7184"
+registers = []
+
+[[midasm_hook]]
+address = 0x823AFCE4
+name = "Amped3_Step_823AFCE4"
+registers = []
+
+[[midasm_hook]]
+address = 0x82462928
+name = "Amped3_Step_82462928"
+registers = []
+
+[[midasm_hook]]
+address = 0x82526378
+name = "Amped3_Step_82526378"
+registers = []
+
+[[midasm_hook]]
+address = 0x8252B644
+name = "Amped3_CinematicStep"
+registers = []
+
+[[midasm_hook]]
+address = 0x825551DC
+name = "Amped3_Step_825551DC"
+registers = []
+
+[[midasm_hook]]
+address = 0x8257CAA8
+name = "Amped3_Step_8257CAA8"
+registers = []
+
+[[midasm_hook]]
+address = 0x822553E4
+name = "Amped3_Step_822553E4"
+registers = []
+
+[[midasm_hook]]
+address = 0x8257F688
+name = "Amped3_Step_8257F688"
+registers = []
+
+[[midasm_hook]]
+address = 0x82225F68
+name = "Amped3_Step_82225F68"
+registers = []
+
+[[midasm_hook]]
+address = 0x82226818
+name = "Amped3_Step_82226818"
+registers = []
+
+[[midasm_hook]]
+address = 0x82241768
+name = "Amped3_Step_82241768"
+registers = []
+
+[[midasm_hook]]
+address = 0x8224A78C
+name = "Amped3_Step_8224A78C"
+registers = []
+
+[[midasm_hook]]
+address = 0x822A7F28
+name = "Amped3_Step_822A7F28"
+registers = []
+
+[[midasm_hook]]
+address = 0x822A8110
+name = "Amped3_Step_822A8110"
+registers = []
+
+[[midasm_hook]]
+address = 0x8238389C
+name = "Amped3_Step_8238389C"
+registers = []
+
+[[midasm_hook]]
+address = 0x82455944
+name = "Amped3_Step_82455944"
+registers = []
+
+[[midasm_hook]]
+address = 0x824B4348
+name = "Amped3_Step_824B4348"
+registers = []
+
+[[midasm_hook]]
+address = 0x824F5E50
+name = "Amped3_Step_824F5E50"
+registers = []
+
+[[midasm_hook]]
+address = 0x8253B16C
+name = "Amped3_Step_8253B16C"
+registers = []
+
+[[midasm_hook]]
+address = 0x8253B2B4
+name = "Amped3_Step_8253B2B4"
+registers = []
+
+[[midasm_hook]]
+address = 0x82746974
+name = "Amped3_Step_82746974"
+registers = []
+
+
+# Debug: per-rider position and speed (src/rider_probe.cpp, --rider_probe=true).
+[[midasm_hook]]
+address = 0x82220150
+name = "Amped3_RiderUpdate"
+registers = ["r3", "f1"]
+
+# Fade requests during an active fade were dropped, leaving "Loading Music"
+# playing next to the next song (src/music_ramp_fix.cpp).
+[[midasm_hook]]
+address = 0x82423238
+name = "Amped3_RampRequest"
+registers = ["r3", "r4"]
+
+# Debug: XAudio2 public API wrappers (src/voice_probe.cpp, --voice_probe=true).
+[[midasm_hook]]
+address = 0x82747B08
+name = "Amped3_Voice_82747B08"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747B70
+name = "Amped3_Voice_82747B70"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747BE0
+name = "Amped3_Voice_82747BE0"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747C38
+name = "Amped3_Voice_82747C38"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747C90
+name = "Amped3_Voice_82747C90"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747CE8
+name = "Amped3_Voice_82747CE8"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747D48
+name = "Amped3_Voice_82747D48"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747DA0
+name = "Amped3_Voice_82747DA0"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747DF0
+name = "Amped3_Voice_82747DF0"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747E48
+name = "Amped3_Voice_82747E48"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747EB0
+name = "Amped3_Voice_82747EB0"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747F08
+name = "Amped3_Voice_82747F08"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747F60
+name = "Amped3_Voice_82747F60"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82747FB8
+name = "Amped3_Voice_82747FB8"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82748010
+name = "Amped3_Voice_82748010"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82748088
+name = "Amped3_Voice_82748088"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82748100
+name = "Amped3_Voice_82748100"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x827481D8
+name = "Amped3_Voice_827481D8"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82748258
+name = "Amped3_Voice_82748258"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x82748260
+name = "Amped3_Voice_82748260"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x827482C0
+name = "Amped3_Voice_827482C0"
+registers = ["r3", "r4", "r5", "f1"]
+
+[[midasm_hook]]
+address = 0x8242D0E8
+name = "Amped3_VoiceStateRead"
+registers = []
+
+[[midasm_hook]]
+address = 0x82424F08
+name = "Amped3_VoiceStateRead"
+registers = []
+
+[[midasm_hook]]
+address = 0x82424D80
+name = "Amped3_VoiceStateRead"
+registers = []
+
+[[midasm_hook]]
+address = 0x82424CA0
+name = "Amped3_FadeStep"
+registers = ["r3", "f1"]
+
+[[midasm_hook]]
+address = 0x82423310
+name = "Amped3_FadeMul_82423310"
+registers = ["r3", "f0"]
+
+[[midasm_hook]]
+address = 0x8242383C
+name = "Amped3_FadeMul_8242383C"
+registers = ["r30", "f0"]
+
+[[midasm_hook]]
+address = 0x82423854
+name = "Amped3_FadeMul_82423854"
+registers = ["r30", "f31"]
+
+[[midasm_hook]]
+address = 0x8242675C
+name = "Amped3_FadeMul_8242675C"
+registers = ["r31", "f0"]
+
+[[midasm_hook]]
+address = 0x8242A6E0
+name = "Amped3_FadeMul_8242A6E0"
+registers = ["r31", "f3"]
+
+[[midasm_hook]]
+address = 0x8242A6FC
+name = "Amped3_FadeMul_8242A6FC"
+registers = ["r31", "f31"]
+
+[[midasm_hook]]
+address = 0x82422E90
+name = "Amped3_FadeMul_82422E90"
+registers = ["r3", "f0"]
+
+[[midasm_hook]]
+address = 0x82429904
+name = "Amped3_FadeMul_82429904"
+registers = ["r30", "f0"]
+
+[[midasm_hook]]
+address = 0x8242FC20
+name = "Amped3_FadeMul_8242FC20"
+registers = ["r11", "f0"]
+
+[[midasm_hook]]
+address = 0x824176A8
+name = "Amped3_SoundOp"
+registers = ["r3", "r4", "r5", "f1", "f2"]
+
+[[midasm_hook]]
+address = 0x82415D18
+name = "Amped3_StopRequest"
+registers = ["r3", "r31"]
+
+[[midasm_hook]]
+address = 0x824188B0
+name = "Amped3_PlayRequest"
+registers = ["r4"]
+
+[[midasm_hook]]
+address = 0x82424188
+name = "Amped3_Instance_5"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82424340
+name = "Amped3_Instance_6"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82424598
+name = "Amped3_Instance_7"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x824247E0
+name = "Amped3_Instance_8"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x824248E8
+name = "Amped3_Instance_9"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82424AC0
+name = "Amped3_Instance_10"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82414F58
+name = "Amped3_StopEnqueue"
+registers = ["r4"]
+
+[[midasm_hook]]
+address = 0x82412070
+name = "Amped3_Ramp"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82423348
+name = "Amped3_InstanceNew"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x824140C8
+name = "Amped3_PlayQ_824140C8"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82414418
+name = "Amped3_PlayQ_82414418"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x824144C0
+name = "Amped3_PlayQ_824144C0"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82414530
+name = "Amped3_PlayQ_82414530"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x824152B8
+name = "Amped3_PlayQ_824152B8"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82416248
+name = "Amped3_PlayQ_82416248"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82416AA0
+name = "Amped3_PlayQ_82416AA0"
+registers = ["r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82493198
+name = "Amped3_MusicState"
+registers = []
+
+[[midasm_hook]]
+address = 0x82417DC0
+name = "Amped3_FadeStopByHandle"
+registers = ["r4"]
+
+[[midasm_hook]]
+address = 0x82494A18
+name = "Amped3_LoadingMusic"
+registers = []

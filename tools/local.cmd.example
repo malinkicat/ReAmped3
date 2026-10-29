@@ -1,0 +1,8 @@
+@echo off
+rem Copy to tools\local.cmd (not committed) and adjust. Called by the build and run scripts.
+rem The extracted game folder (with default.xex).
+if "%AMPED3_GAME_DIR%"=="" set AMPED3_GAME_DIR=C:\Games\Amped 3
+rem clang/clang++ (LLVM for Windows).
+if "%LLVM%"=="" set LLVM=C:\llvm\bin
+rem The ReXGlue source tree the runtime DLLs are built from.
+if "%SDK_SRC%"=="" set SDK_SRC=D:\Dev\rexglue
