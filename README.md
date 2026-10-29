@@ -71,4 +71,8 @@ Never upload `build`, `dist`, `private_work` or `project/generated`. They contai
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details and licenses.
 
+## License
+
+MIT for this project's own code (see [LICENSE](LICENSE)). Third-party parts keep their own licenses ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)). Game content is not included or covered.
+
 Amped 3 is © 2K Games / Indie Built. This project is not affiliated with them.
