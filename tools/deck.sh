@@ -59,6 +59,18 @@ echo "proton: $proton"
     sleep 1
   done
 ) > clocks.csv 2>/dev/null &
+# Per-thread CPU time every 10 s while the game runs (threads.log): % of one
+# core per thread over each window, busiest first. Read-only (/proc).
+(
+  sleep 5
+  snap() { for t in /proc/$1/task/*; do echo "$(cat $t/comm 2>/dev/null)|$(sed "s/.*) //" $t/stat 2>/dev/null | awk '{print $12+$13}')|${t##*/}"; done; }
+  while pid=$(pgrep -f '^Z:.*amped3\.exe' | head -1) && [ -n "$pid" ]; do
+    snap $pid > .threads_a; sleep 10; snap $pid > .threads_b
+    echo "== $(date +%T)"
+    awk -F'|' 'NR==FNR{a[$3]=$2; next} {d=$2-a[$3]; if (d>20) printf "%5.1f%% %s\n", d/10, $1}' .threads_a .threads_b | sort -rn | head -8
+  done
+  rm -f .threads_a .threads_b
+) > threads.log 2>/dev/null &
 # Pad input even when the window isn't focused (gamescope/KWin don't always
 # give a Proton window focus; SDL drops pad events without it).
 export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
@@ -114,7 +126,7 @@ case "$1" in
     ;;
   logs)
     mkdir -p private_work/deck
-    "${SSH[@]}" "cd $DECK_DIR && tar cf - \$(ls amped3.log proton.log *.csv settings.ini 2>/dev/null)" |
+    "${SSH[@]}" "cd $DECK_DIR && tar cf - \$(ls amped3.log proton.log threads.log *.csv settings.ini 2>/dev/null)" |
       tar xf - -C private_work/deck/
     ls -la private_work/deck/
     ;;
