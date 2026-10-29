@@ -45,7 +45,7 @@ session=$(pgrep -u "$(id -u)" -x plasmashell | head -1)
 [ -n "$session" ] || session=$(pgrep -u "$(id -u)" -x steam | head -1)
 if [ -n "$session" ]; then
   while IFS= read -r -d '' var; do
-    case "$var" in DISPLAY=*|XAUTHORITY=*|WAYLAND_DISPLAY=*|XDG_RUNTIME_DIR=*) export "$var" ;; esac
+    case "$var" in DISPLAY=*|XAUTHORITY=*|WAYLAND_DISPLAY=*|XDG_RUNTIME_DIR=*|DBUS_SESSION_BUS_ADDRESS=*) export "$var" ;; esac
   done < "/proc/$session/environ"
 fi
 echo "proton: $proton"
@@ -81,7 +81,12 @@ export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
 # Debug flags set by tools/deck.sh flags, also applied when Steam starts this.
 extra=()
 [ -f extra_args.txt ] && read -r -a extra < extra_args.txt
-exec "$proton" run "$here/amped3.exe" --game_data_root="Z:${here//\//\\}\\game" \
+# In Desktop Mode, keep the screen on while the game runs (Gaming Mode does
+# this itself); the inhibition ends with the game.
+inhibit=()
+pgrep -u "$(id -u)" -x plasmashell >/dev/null && command -v kde-inhibit >/dev/null &&
+  inhibit=(kde-inhibit --power --screenSaver)
+exec "${inhibit[@]}" "$proton" run "$here/amped3.exe" --game_data_root="Z:${here//\//\\}\\game" \
   --resolution_scale=1 --draw_resolution_scale_x=1 --draw_resolution_scale_y=1 \
   --window_width=1280 --window_height=800 --fullscreen=true --framerate=60 --mnk_mode=true \
   --log_file=amped3.log --log_flush_interval=1 "${extra[@]}" "$@"
