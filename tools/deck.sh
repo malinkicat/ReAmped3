@@ -7,6 +7,7 @@
 #   tools/deck.sh deploy         build package -> ~/ReAmped3 (game files only the first time)
 #   tools/deck.sh run [args...]  start amped3.exe under Proton (Desktop Mode), extra game args passed on
 #   tools/deck.sh stop           stop the game
+#   tools/deck.sh status         is it running?
 #   tools/deck.sh logs           fetch amped3.log and the .csv files into private_work/deck/
 #   tools/deck.sh ssh [cmd]      shell (or one command) on the Deck
 cd "$(dirname "$0")/.." && . tools/env.sh
@@ -34,11 +35,20 @@ proton="$common/Proton - Experimental/proton"
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=$HOME/.steam/steam
 export STEAM_COMPAT_DATA_PATH=$here/pfx
 mkdir -p "$STEAM_COMPAT_DATA_PATH"
-export DISPLAY=${DISPLAY:-:0}
-export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+# Run in the logged-in session (Desktop or Gaming Mode): take its display
+# variables from plasmashell, else Steam itself.
+session=$(pgrep -u "$(id -u)" -x plasmashell | head -1)
+[ -n "$session" ] || session=$(pgrep -u "$(id -u)" -x steam | head -1)
+if [ -n "$session" ]; then
+  while IFS= read -r -d '' var; do
+    case "$var" in DISPLAY=*|XAUTHORITY=*|WAYLAND_DISPLAY=*|XDG_RUNTIME_DIR=*) export "$var" ;; esac
+  done < "/proc/$session/environ"
+fi
 echo "proton: $proton"
 exec "$proton" run "$here/amped3.exe" --game_data_root="Z:${here//\//\\}\\game" \
-  --fullscreen=true --log_file=amped3.log --log_flush_interval=1 "$@"
+  --resolution_scale=1 --draw_resolution_scale_x=1 --draw_resolution_scale_y=1 \
+  --window_width=1280 --window_height=800 --fullscreen=false --framerate=60 --mnk_mode=true \
+  --log_file=amped3.log --log_flush_interval=1 "$@"
 EOF
 }
 
@@ -62,14 +72,22 @@ case "$1" in
     ;;
   run)
     shift
-    "${SSH[@]}" "cd $DECK_DIR && rm -f amped3.log && (setsid ./run.sh $* > proton.log 2>&1 &) && sleep 1 && head -3 proton.log"
+    # As a transient user service: processes started straight from an SSH
+    # session are killed when it ends. Gone again when the game exits.
+    "${SSH[@]}" "cd $DECK_DIR && rm -f amped3.log && systemctl --user stop reamped3 2>/dev/null; systemctl --user reset-failed reamped3 2>/dev/null; \
+      systemd-run --user --quiet --collect --unit=reamped3 --working-directory=\$HOME/$DECK_DIR \
+        bash -c './run.sh $* > proton.log 2>&1' && sleep 2 && head -3 proton.log"
     ;;
   stop)
-    "${SSH[@]}" "pkill -f amped3.exe; true"
+    "${SSH[@]}" "systemctl --user stop reamped3 2>/dev/null; pkill -f '[a]mped3\.exe'; true"
+    ;;
+  status)
+    "${SSH[@]}" "pgrep -fa '[a]mped3\.exe' | grep -v proton | cut -c1-80 || echo 'not running'"
     ;;
   logs)
     mkdir -p private_work/deck
-    rsync -a -e "$RSYNC_SSH" "$DECK_HOST:$DECK_DIR/{amped3.log,proton.log,*.csv,settings.ini}" private_work/deck/ 2>/dev/null
+    "${SSH[@]}" "cd $DECK_DIR && tar cf - \$(ls amped3.log proton.log *.csv settings.ini 2>/dev/null)" |
+      tar xf - -C private_work/deck/
     ls -la private_work/deck/
     ;;
   ssh)
@@ -77,6 +95,6 @@ case "$1" in
     "${SSH[@]}" "$@"
     ;;
   *)
-    sed -n '2,12p' "$0"
+    sed -n "2,13p" "$0"
     ;;
 esac
