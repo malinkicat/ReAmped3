@@ -58,7 +58,7 @@ if [ "$label" = explore ]; then
   exit 0
 fi
 trap restore_save EXIT
-"${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt"
+"${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt ReAmped3/cpu_profile.csv"
 tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true "$@" >/dev/null || exit 1
 
 # Time from the game's first log line (Proton itself takes a while to start).
@@ -77,6 +77,9 @@ if [ "$BENCH_ROUTE" = openworld ]; then
       # Stand at the top for OW_STAND s (10) first: the view over the park is
       # the heaviest part (12-14k draws a frame) and is inside the measurement.
       sleep 1; pad "up 2000"; sleep 3.5; pad a; sleep 12
+      # BENCH_PROFILE: profile the stand (the script is only read between
+      # steps, so not during the long stick step that follows).
+      [ -n "$BENCH_PROFILE" ] && pad "profile 10"
       ( sleep ${OW_STAND:-10}; pad a "stick 0 1 120000" ) &
       riding=1; break
     fi
@@ -107,6 +110,22 @@ while [ "$BENCH_ROUTE" != openworld ] && sleep 1.5; do
   [ $now -gt 300 ] && { echo "$label: timeout"; pad "speed 1"; break; }
 done
 [ $riding = 1 ] || { tools/deck.sh stop >/dev/null; exit 1; }
+# BENCH_PIN="cpus-for-draws|cpus-for-the-rest" (e.g. "6|0-5"): pin the game's
+# GPU Draws thread and keep its other threads off those CPUs (taskset on our
+# own process only), to test thread placement.
+if [ -n "$BENCH_PIN" ]; then
+  "${SSH[@]}" "pid=\$(pgrep -f '^Z:.*amped3\.exe' | head -1); for t in /proc/\$pid/task/*; do case \"\$(cat \$t/comm)\" in 'GPU Draws'*) taskset -pc ${BENCH_PIN%%|*} \${t##*/} ;; *) taskset -pc ${BENCH_PIN##*|} \${t##*/} ;; esac; done >/dev/null 2>&1"
+fi
+# BENCH_SHOTS=N: screenshots back to back for N seconds from the start of the
+# ride -> $S/burst_<label>/NN.png (spectacle; about one a second).
+if [ -n "$BENCH_SHOTS" ]; then
+  ( mkdir -p "$S/burst_$label"; end=$(( $(date +%s) + BENCH_SHOTS )); n=0
+    while [ $(date +%s) -lt $end ]; do
+      n=$((n + 1)); f=$(printf '%02d' $n)
+      "${SSH[@]}" "p=\$(pgrep -u deck -x plasmashell | head -1); for v in \$(tr '\\0' '\\n' < /proc/\$p/environ | grep -E '^(DISPLAY|XAUTHORITY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR)='); do export \"\$v\"; done; timeout 10 spectacle -b -n -f -o \$HOME/ReAmped3/burst_$f.png >/dev/null 2>&1"
+    done
+    scp -q -i "$KEY" "$DECK_HOST:ReAmped3/burst_*.png" "$S/burst_$label/" && "${SSH[@]}" "rm -f ReAmped3/burst_*.png" ) &
+fi
 # A screenshot 2 s into the ride (before the measured window), to check the
 # picture -> $S/ride_<label>.png
 ( sleep 2; shot && cp $S/bench_shot.png "$S/ride_$label.png" ) &
@@ -114,8 +133,8 @@ done
 ( sleep 12; "${SSH[@]}" 'pid=$(pgrep -f "^Z:.*amped3\.exe" | head -1); snap() { for t in /proc/$pid/task/*; do echo "$(cat $t/comm 2>/dev/null)|$(sed "s/.*) //" $t/stat 2>/dev/null | awk "{print \$12+\$13}")|${t##*/}"; done; }; snap > ReAmped3/.rt_a; sleep 10; snap > ReAmped3/.rt_b; awk -F"|" "NR==FNR{a[\$3]=\$2; next} {d=\$2-a[\$3]; if (d>5) printf \"%5.1f%% %s\n\", d/10, \$1}" ReAmped3/.rt_a ReAmped3/.rt_b | sort -rn; rm -f ReAmped3/.rt_a ReAmped3/.rt_b' > "$S/threads_$label.txt" 2>&1 ) &
 if [ -n "$BENCH_PROFILE" ]; then
   # BENCH_PROFILE=1: a 10 s CPU profile from 10 s into the ride -> $S/cpu_profile_<label>.csv
-  sleep 10; pad "profile 10"; sleep $((secs - 6))
-  scp -q -i "$KEY" "$DECK_HOST:ReAmped3/cpu_profile.csv" "$S/cpu_profile_$label.csv"
+  sleep 10; [ "$BENCH_ROUTE" = openworld ] || pad "profile 10"; sleep $((secs - 6))
+  scp -q -i "$KEY" "$DECK_HOST:ReAmped3/cpu_profile.csv" "$S/cpu_profile_$label.csv" || echo "$label: no CPU profile" >&2
 else
   sleep $((secs + 4))
 fi

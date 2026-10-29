@@ -31,5 +31,5 @@ while sleep 1.5; do
     exit 0
   fi
   tools/pad.sh ${speed:+"$speed"} a
-  [ $(( $(date +%s) - start )) -gt 150 ] && { echo "quick_ride: timeout"; tools/pad.sh "speed 1"; exit 1; }
+  [ $(( $(date +%s) - start )) -gt ${QUICK_TIMEOUT:-150} ] && { echo "quick_ride: timeout"; tools/pad.sh "speed 1"; exit 1; }
 done
