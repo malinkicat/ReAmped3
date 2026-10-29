@@ -105,6 +105,11 @@ struct App {
   Repeat stick;
   std::vector<Act> acts;
   bool mouse_moved = false;
+  // Pointer travel since start-up, ignoring the first second: gamescope (Steam
+  // Deck Gaming Mode) parks the hidden pointer mid-screen at start, which must
+  // not pull the focus off RIDE.
+  float mouse_travel = 0.0f;
+  uint64_t mouse_ignore_until = 0;
 };
 
 // ---- small helpers -------------------------------------------------------
@@ -446,7 +451,14 @@ void HandleEvent(App& a, const SDL_Event& e) {
       }
       break;
     }
-    case SDL_EVENT_MOUSE_MOTION: a.mouse_moved = true; a.pad_hints = false; break;
+    case SDL_EVENT_MOUSE_MOTION:
+      if (SDL_GetTicks() < a.mouse_ignore_until) break;
+      a.mouse_travel += std::abs(e.motion.xrel) + std::abs(e.motion.yrel);
+      if (a.mouse_travel > 8.0f) {
+        a.mouse_moved = true;
+        a.pad_hints = false;
+      }
+      break;
     default: break;
   }
 }
@@ -910,6 +922,7 @@ int RunLauncher() {
   Frame(a);
   SDL_ShowWindow(a.window);
   SDL_RaiseWindow(a.window);
+  a.mouse_ignore_until = SDL_GetTicks() + 1000;
   int fast_frames = 3;
   while (!a.quit) {
     bool busy = a.launching || a.dpad.dir >= 0 || a.stick.dir >= 0 || fast_frames > 0;
