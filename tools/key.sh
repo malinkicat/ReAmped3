@@ -16,13 +16,13 @@ public static class GameWindow {
   [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
-  // The game window (title "Amped 3 | ..."), not the F10 frame-graph overlay.
+  // The game window (title "ReAmped 3 | ..."), not the F10 frame-graph overlay.
   public static IntPtr Find(uint pid) {
     IntPtr found = IntPtr.Zero;
     EnumWindows((h, l) => {
       uint p; GetWindowThreadProcessId(h, out p);
       var s = new StringBuilder(256); GetWindowText(h, s, 256);
-      if (p == pid && s.ToString().StartsWith("Amped 3")) { found = h; return false; }
+      if (p == pid && s.ToString().StartsWith("ReAmped 3")) { found = h; return false; }
       return true;
     }, IntPtr.Zero);
     return found;

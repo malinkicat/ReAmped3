@@ -167,7 +167,7 @@ class Amped3App : public rex::ReXApp {
   // Window title listing the frame rate, render scale and any other flags on the
   // command line (paths and window plumbing left out), to tell test runs apart.
   static std::string SettingsTitle() {
-    std::string title = "Amped 3 | " + std::to_string(REXCVAR_GET(framerate)) + " FPS";
+    std::string title = "ReAmped 3 | " + std::to_string(REXCVAR_GET(framerate)) + " FPS";
     if (REXCVAR_GET(framerate) == 0) {
       title = "Amped 3 | unlimited FPS";
     }
