@@ -346,6 +346,7 @@ registers = []
 address = 0x82220150
 name = "Amped3_RiderUpdate"
 registers = ["r3", "f1"]
+return_on_true = true
 
 # Fade requests during an active fade were dropped, leaving "Loading Music"
 # playing next to the next song (src/music_ramp_fix.cpp).
@@ -634,3 +635,16 @@ registers = ["r4"]
 address = 0x82494A18
 name = "Amped3_LoadingMusic"
 registers = []
+
+# Debug: an AI rider's re-plan check, after the heading dot product
+# (src/rider_probe.cpp, --rider_heading_probe=true).
+[[midasm_hook]]
+address = 0x82399108
+name = "Amped3_RiderHeading"
+registers = ["r31", "f0"]
+
+# Debug: the flapping clothes animation job (src/cloth_probe.cpp, --cloth_dump=N).
+[[midasm_hook]]
+address = 0x8222DB18
+name = "Amped3_ClothJob"
+registers = ["r3"]

@@ -10,6 +10,12 @@ void RequestDump();
 namespace amped3 {
 void WritePgoProfile();  // main.cpp
 }
+namespace amped3::watch_probe {
+void Request();
+}
+namespace amped3::cloth_probe {
+void Request();
+}
 #include "pix_capture.h"
 
 #include <rex/chrono/clock.h>
@@ -208,6 +214,16 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
         int frames = 1;
         words >> frames;
         amped3::pix::CaptureNextFrames(frames);
+        continue;
+      }
+      if (name == "clothdump") {
+        // Debug: dump the flapping clothes job's animation objects (cloth_probe.cpp).
+        amped3::cloth_probe::Request();
+        continue;
+      }
+      if (name == "watch") {
+        // Debug: hardware write breakpoint on a rider's actor field (watch_probe.cpp).
+        amped3::watch_probe::Request();
         continue;
       }
       if (name == "pgodump") {

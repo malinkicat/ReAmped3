@@ -26,6 +26,8 @@ set(AMPED3_SOURCES
     src/frame_graph.cpp
     src/music_ramp_fix.cpp
     src/pix_capture.cpp
+    src/watch_probe.cpp
+    src/cloth_probe.cpp
 )
 
 if(WIN32)

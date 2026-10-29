@@ -30,6 +30,7 @@
 REXCVAR_DECLARE(bool, rider_probe);
 REXCVAR_DECLARE(int32_t, rider_dump);
 REXCVAR_DECLARE(bool, rider_timers);
+REXCVAR_DEFINE_INT32(ai_physics_hz, 0, "Debug", "Update AI riders at this rate with the accumulated time step (0 = every frame)");
 
 namespace {
 
@@ -129,8 +130,56 @@ void TrackTimers(uint32_t rider) {
 }
 }  // namespace
 
-// [[midasm_hook]] at 0x82220150, the per-rider update's entry.
-void Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
+namespace amped3::watch_probe {
+void OnRiderUpdate(uint32_t rider);  // watch_probe.cpp
+}
+
+namespace {
+// --ai_physics_hz: AI riders (those using the AI re-plan timer at actor+2212;
+// the player's stays 0) are updated at that rate, with the accumulated time
+// as the step, instead of every frame - to test whether their behaviour above
+// 30 FPS comes from the size of the time step.
+struct AiStep {
+  double accumulated = 0.0;
+  bool is_ai = false;
+};
+std::map<uint32_t, AiStep> g_ai_steps;
+
+bool SkipAiUpdate(uint32_t rider, PPCRegister& f1) {
+  const int32_t hz = REXCVAR_GET(ai_physics_hz);
+  if (hz <= 0) {
+    return false;
+  }
+  AiStep& state = g_ai_steps[rider];
+  if (!state.is_ai) {
+    auto* memory = REX_KERNEL_MEMORY();
+    const uint32_t holder = LoadBE32(memory->TranslateVirtual<const uint8_t*>(rider + 1500));
+    if (holder) {
+      const uint32_t actor = LoadBE32(memory->TranslateVirtual<const uint8_t*>(holder + 20));
+      state.is_ai =
+          actor && LoadBE32(memory->TranslateVirtual<const uint8_t*>(actor + 2212)) != 0;
+    }
+    if (!state.is_ai) {
+      return false;
+    }
+  }
+  state.accumulated += f1.f64;
+  if (state.accumulated < 0.999 / hz) {
+    return true;
+  }
+  f1.f64 = state.accumulated;
+  state.accumulated = 0.0;
+  return false;
+}
+}  // namespace
+
+// [[midasm_hook]] at 0x82220150, the per-rider update's entry. Returns true to
+// skip the update (--ai_physics_hz).
+bool Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
+  amped3::watch_probe::OnRiderUpdate(r3.u32);
+  if (SkipAiUpdate(r3.u32, f1)) {
+    return true;
+  }
   if (REXCVAR_GET(rider_timers)) {
     TrackTimers(r3.u32);
   }
@@ -138,7 +187,7 @@ void Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
     Dump(r3.u32, f1.f64);
   }
   if (!REXCVAR_GET(rider_probe)) {
-    return;
+    return false;
   }
   const auto* p = REX_KERNEL_MEMORY()->TranslateVirtual<const uint8_t*>(r3.u32 + 2176);
   const float pos[3] = {LoadBEFloat(p), LoadBEFloat(p + 4), LoadBEFloat(p + 8)};
@@ -159,7 +208,7 @@ void Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
   }
   const double window = std::chrono::duration<double>(now - g_window_start).count();
   if (window < 1.0) {
-    return;
+    return false;
   }
   std::string out;
   for (const auto& [rider, v] : g_riders) {
@@ -170,4 +219,51 @@ void Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
   REXLOG_INFO("RiderProbe:{}", out);
   g_riders.clear();
   g_window_start = now;
+  return false;
+}
+
+// --rider_heading_probe: sub_82398FE0 (an AI rider's re-plan check) at
+// 0x82399108, where f0 is the dot product of the rider's current horizontal
+// direction with the one saved at the last re-plan (r31 = the AI state).
+// Logs calls per second and the spread of the dot product per AI state, every
+// two seconds - jitter in the direction shows as dot products below ~1 that
+// come and go from frame to frame.
+REXCVAR_DEFINE_BOOL(rider_heading_probe, false, "Debug",
+                    "Log calls/s and dot-product spread of the AI riders' re-plan check");
+
+namespace {
+struct HeadingStats {
+  uint64_t calls = 0;
+  double min_dot = 1.0, sum_drop = 0.0;
+  float last_dot = 1.0f;
+  double sum_jump = 0.0;
+};
+std::map<uint32_t, HeadingStats> g_heading;
+std::chrono::steady_clock::time_point g_heading_start{};
+}  // namespace
+
+void Amped3_RiderHeading(PPCRegister& r31, PPCRegister& f0) {
+  if (!REXCVAR_GET(rider_heading_probe)) {
+    return;
+  }
+  std::lock_guard lock(g_mutex);
+  HeadingStats& s = g_heading[r31.u32];
+  const float dot = float(f0.f64);
+  ++s.calls;
+  s.min_dot = std::min(s.min_dot, double(dot));
+  s.sum_drop += 1.0 - dot;
+  s.sum_jump += std::fabs(dot - s.last_dot);
+  s.last_dot = dot;
+  const auto now = std::chrono::steady_clock::now();
+  if (g_heading_start == std::chrono::steady_clock::time_point{}) g_heading_start = now;
+  const double window = std::chrono::duration<double>(now - g_heading_start).count();
+  if (window < 2.0) return;
+  std::string out;
+  for (const auto& [state, v] : g_heading) {
+    out += fmt::format(" [{:08X} {:.0f}/s min={:.4f} mean_drop={:.5f} mean_jump={:.5f}]", state,
+                       v.calls / window, v.min_dot, v.sum_drop / v.calls, v.sum_jump / v.calls);
+  }
+  REXLOG_INFO("RiderHeading:{}", out);
+  g_heading.clear();
+  g_heading_start = now;
 }
