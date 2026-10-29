@@ -33,6 +33,7 @@ set(AMPED3_SOURCES
     src/fonts.cpp
     src/quit_prompt.cpp
     src/ring_wait.cpp
+    src/view_distance.cpp
 )
 
 if(WIN32)

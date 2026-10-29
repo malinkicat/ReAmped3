@@ -678,3 +678,9 @@ registers = []
 address = 0x825A35E8
 name = "Amped3_RingSpaceSpin"
 registers = []
+
+# Camera far clip (src/view_distance.cpp, --far_clip_scale, --camera_log).
+[[midasm_hook]]
+address = 0x821CDA28
+name = "Amped3_CameraFarClipRead"
+registers = ["r31"]
