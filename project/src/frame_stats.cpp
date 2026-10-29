@@ -14,6 +14,7 @@
 #include <rex/system/xmemory.h>
 #include <rex/system/xthread.h>
 
+#include "cpu_profile.h"
 #include "frame_graph.h"
 #include "quit_prompt.h"
 
@@ -30,6 +31,7 @@
 REXCVAR_DECLARE(bool, fps_log);
 REXCVAR_DECLARE(bool, hitch_profile);
 REXCVAR_DECLARE(bool, frame_times);
+REXCVAR_DECLARE(bool, profile_pad_combo);
 
 namespace {
 
@@ -122,13 +124,41 @@ void ReportHitch(Clock::time_point start, Clock::time_point end, double ms) {
 
 void Amped3_PaceFrame();  // frame_rate.cpp
 
+namespace {
+
+// --profile_pad_combo: L3 + R3 held for a second starts a 10 s CPU profile
+// (for machines without the scripted pad, e.g. a Steam Deck).
+void ProfileOnPadCombo(uint16_t buttons, double now) {
+  static double held_since = -1.0;
+  static bool fired = false;
+  constexpr uint16_t kThumbs = 0x0040 | 0x0080;
+  if ((buttons & kThumbs) != kThumbs) {
+    held_since = -1.0;
+    fired = false;
+    return;
+  }
+  if (held_since < 0.0) {
+    held_since = now;
+  }
+  if (!fired && now - held_since >= 1.0) {
+    fired = true;
+    amped3::cpu_profile::Start(10);
+  }
+}
+
+}  // namespace
+
 // [[midasm_hook]] at 0x825AB7F4, the game's `bl VdSwap` (once per presented frame).
 void Amped3_OnFrame() {
   Amped3_PaceFrame();
   amped3::frame_graph::RecordGameFrame();
-  amped3::quit_prompt::OnPadButtons(
-      amped3::quit_prompt::PadButtons(),
-      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count());
+  const uint16_t pad = amped3::quit_prompt::PadButtons();
+  const double now_seconds =
+      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  amped3::quit_prompt::OnPadButtons(pad, now_seconds);
+  if (REXCVAR_GET(profile_pad_combo)) {
+    ProfileOnPadCombo(pad, now_seconds);
+  }
   if (!REXCVAR_GET(fps_log) && !REXCVAR_GET(hitch_profile) && !REXCVAR_GET(frame_times)) {
     return;
   }

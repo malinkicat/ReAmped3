@@ -6,6 +6,7 @@
 #   tools/deck.sh setup          one-time: install this PC's SSH key on the Deck
 #   tools/deck.sh deploy         build package -> ~/ReAmped3 (game files only the first time)
 #   tools/deck.sh run [args...]  start amped3.exe under Proton (Desktop Mode), extra game args passed on
+#   tools/deck.sh flags [args...]  extra game flags for every launch (Steam shortcut too); none = clear
 #   tools/deck.sh stop           stop the game
 #   tools/deck.sh status         is it running?
 #   tools/deck.sh logs           fetch amped3.log and the .csv files into private_work/deck/
@@ -45,10 +46,13 @@ if [ -n "$session" ]; then
   done < "/proc/$session/environ"
 fi
 echo "proton: $proton"
+# Debug flags set by tools/deck.sh flags, also applied when Steam starts this.
+extra=()
+[ -f extra_args.txt ] && read -r -a extra < extra_args.txt
 exec "$proton" run "$here/amped3.exe" --game_data_root="Z:${here//\//\\}\\game" \
   --resolution_scale=1 --draw_resolution_scale_x=1 --draw_resolution_scale_y=1 \
   --window_width=1280 --window_height=800 --fullscreen=true --framerate=60 --mnk_mode=true \
-  --log_file=amped3.log --log_flush_interval=1 "$@"
+  --log_file=amped3.log --log_flush_interval=1 "${extra[@]}" "$@"
 EOF
 }
 
@@ -78,6 +82,11 @@ case "$1" in
       systemd-run --user --quiet --collect --unit=reamped3 --working-directory=\$HOME/$DECK_DIR \
         bash -c './run.sh $* > proton.log 2>&1' && sleep 2 && head -3 proton.log"
     ;;
+  flags)
+    # Extra game flags for every launch, including from the Steam shortcut.
+    shift
+    "${SSH[@]}" "echo '$*' > $DECK_DIR/extra_args.txt && cat $DECK_DIR/extra_args.txt"
+    ;;
   stop)
     "${SSH[@]}" "systemctl --user stop reamped3 2>/dev/null; pkill -f '[a]mped3\.exe'; true"
     ;;
@@ -95,6 +104,6 @@ case "$1" in
     "${SSH[@]}" "$@"
     ;;
   *)
-    sed -n "2,13p" "$0"
+    sed -n "2,14p" "$0"
     ;;
 esac
