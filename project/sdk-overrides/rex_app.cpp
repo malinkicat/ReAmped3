@@ -506,6 +506,11 @@ std::function<void(PathConfig)> ReXApp::MakeResumeCallback() {
 }
 
 void ReXApp::OnKeyDown(ui::KeyEvent& e) {
+  // Amped 3: binds fire once per press, not on key repeat (a held Escape that
+  // cancelled the name prompt reopened the quit prompt; a held F10 toggled).
+  if (e.prev_state()) {
+    return;
+  }
   rex::ui::ProcessKeyEvent(e);
 }
 

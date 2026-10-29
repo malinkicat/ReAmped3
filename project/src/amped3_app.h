@@ -169,7 +169,7 @@ class Amped3App : public rex::ReXApp {
   static std::string SettingsTitle() {
     std::string title = "ReAmped 3 | " + std::to_string(REXCVAR_GET(framerate)) + " FPS";
     if (REXCVAR_GET(framerate) == 0) {
-      title = "Amped 3 | unlimited FPS";
+      title = "ReAmped 3 | unlimited FPS";
     }
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
