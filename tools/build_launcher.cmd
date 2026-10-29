@@ -13,5 +13,5 @@ if not exist build\launcher\build.ninja (
 )
 cmake --build build\launcher --parallel %1 || exit /b 1
 copy /y build\launcher\amped3_launcher.exe build\amped3_launcher.exe >nul || exit /b 1
-build\amped3_launcher.exe --selftest | findstr /x "SELFTEST OK" >nul || (echo launcher selftest failed & exit /b 1)
+build\amped3_launcher.exe --selftest | findstr /x /c:"SELFTEST OK" >nul || (echo launcher selftest failed & exit /b 1)
 echo LAUNCHER OK
