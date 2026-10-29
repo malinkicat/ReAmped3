@@ -59,7 +59,7 @@ Never upload `build`, `dist`, `private_work` or `project/generated`. They contai
 
 - `project/overrides.toml`: functions the analyser missed, and hooks into the game code.
 - `project/src`: the hooks (frame rate, music, shutdown fix) and opt-in debug tools.
-- `project/launcher`: the settings launcher.
+- `project/launcher_sdl`: the settings launcher (SDL3 and Dear ImGui; works with a controller, also on the Steam Deck). `project/launcher`: the earlier WPF launcher, no longer built.
 - `tools`: build, test and profiling scripts.
 
 ## Credits
