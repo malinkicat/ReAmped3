@@ -64,7 +64,7 @@ inline void SetDefaultPluginFlag(const char* name, const char* value) {
 // whole session, and any attached ImGui dialog makes the presenter repaint on
 // every display refresh (~200 presents/s against 60 game frames), competing
 // with GPU emulation. Attach it only while a toast can be on screen (from
-// Table-Tennis-Recomp).
+// Table-Tennis-Rockstar-PC, MIT; see THIRD_PARTY_NOTICES.md).
 class OnDemandToastDialog : public rex::ui::AchievementToastDialog {
  public:
   OnDemandToastDialog(rex::ui::WindowedAppContext& app_context, rex::ui::ImGuiDrawer* drawer,
@@ -198,6 +198,11 @@ class Amped3App : public rex::ReXApp {
 
   void OnPostSetup() override {
     amped3::frame_graph::InstallPresentHook();
+    // To the front when started by the launcher (which allows it) or from a
+    // shortcut; otherwise fullscreen can open behind other windows.
+    if (window()) {
+      SetForegroundWindow(static_cast<HWND>(window()->GetNativeWindowHandle()));
+    }
     if (REXCVAR_GET(hang_watch) > 0) {
       amped3::hang_watch::Start(runtime(), REXCVAR_GET(hang_watch));
     }

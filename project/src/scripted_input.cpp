@@ -7,6 +7,9 @@
 namespace amped3::rider_probe {
 void RequestDump();
 }
+namespace amped3 {
+void WritePgoProfile();  // main.cpp
+}
 #include "pix_capture.h"
 
 #include <rex/chrono/clock.h>
@@ -205,6 +208,11 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
         int frames = 1;
         words >> frames;
         amped3::pix::CaptureNextFrames(frames);
+        continue;
+      }
+      if (name == "pgodump") {
+        // Profile-guided optimization: write the instrumented build's counters.
+        amped3::WritePgoProfile();
         continue;
       }
       if (name == "riderdump") {

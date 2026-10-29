@@ -24,3 +24,20 @@ REXCVAR_DEFINE_BOOL(scripted_input, false, "Debug", "Play back input_script.txt 
 #include "amped3_app.h"
 
 REX_DEFINE_APP(amped3, Amped3App::Create)
+
+#ifdef AMPED3_PGO_GEN
+extern "C" int __llvm_profile_write_file(void);
+#endif
+
+namespace amped3 {
+// The scripted "pgodump" command: with a -fprofile-instr-generate build
+// (tools/build_pgo.cmd), writes the profile counters (the process is usually
+// killed, so they're never written at exit).
+void WritePgoProfile() {
+#ifdef AMPED3_PGO_GEN
+  REXLOG_INFO("Amped3: PGO profile written ({})", __llvm_profile_write_file());
+#else
+  REXLOG_WARN("Amped3: pgodump needs an instrumented build (tools/build_pgo.cmd)");
+#endif
+}
+}  // namespace amped3

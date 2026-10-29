@@ -2,7 +2,7 @@
 //
 // Any ImGui dialog makes the SDK presenter repaint on every display refresh,
 // which competes with GPU emulation, so the graph is a separate click-through
-// window drawn with GDI (as in Table-Tennis-Recomp). It plots two series:
+// window drawn with GDI (as in Table-Tennis-Rockstar-PC). It plots two series:
 //   display: DXGI presents, i.e. when frames reach the screen (what you see)
 //   game:    the game's VdSwap calls (CPU side; drifts by design at 30/60,
 //            because the flip itself waits for vblank later on the GPU)

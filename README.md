@@ -64,8 +64,11 @@ Never upload `build`, `dist`, `private_work` or `project/generated`. They contai
 
 ## Credits
 
-- [ReXGlue](https://github.com/rexglue) and [Xenia](https://github.com/xenia-canary/xenia-canary), which the runtime is based on.
-- Brian Maguire for finding the cause of the UI corruption, and Xenia Canary PR #1129 for the fix.
-- The Dragon Ball Z ReXGlue fork for the render target and resolve work this builds on.
+- [ReXGlue](https://github.com/rexglue/rexglue-sdk), the recompiler and runtime, and [Xenia](https://github.com/xenia-canary/xenia-canary), which the runtime is based on.
+- [iExplosiveRage's ReXGlue fork](https://github.com/iExplosiveRage/rexglue-sdk) for the render target and resolve work this builds on.
+- [Table-Tennis-Rockstar-PC](https://github.com/davidptrssvea/Table-Tennis-Rockstar-PC) for the frame graph, the launcher's starting point and a few runtime fixes.
+- Brian Maguire for finding the cause of the UI corruption, and [Xenia Canary PR #1129](https://github.com/xenia-canary/xenia-canary/pull/1129) for the fix.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details and licenses.
 
 Amped 3 is © 2K Games / Indie Built. This project is not affiliated with them.

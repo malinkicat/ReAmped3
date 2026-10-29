@@ -1,3 +1,6 @@
+// Settings launcher. The starting layout came from Table-Tennis-Rockstar-PC
+// (github.com/davidptrssvea/Table-Tennis-Rockstar-PC, MIT; see THIRD_PARTY_NOTICES.md).
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -314,6 +317,41 @@ namespace Amped3Launcher
             public int dmPanningWidth, dmPanningHeight;
         }
 
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool AllowSetForegroundWindow(int processId);
+
+        // Windows only lets the foreground process give another one the focus,
+        // and the game's window appears a few seconds after it starts. So the
+        // launcher stays until that window exists, brings it to the front, and
+        // then closes (after 20 s at the latest).
+        private void HandOverFocus(Process game)
+        {
+            try { AllowSetForegroundWindow(game.Id); } catch { }
+            txtStatus.Text = "Starting the game...";
+            IsEnabled = false;
+            DateTime deadline = DateTime.Now.AddSeconds(20);
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            timer.Tick += (s, e) =>
+            {
+                IntPtr window = IntPtr.Zero;
+                try
+                {
+                    game.Refresh();
+                    if (!game.HasExited) window = game.MainWindowHandle;
+                }
+                catch { }
+                if (window != IntPtr.Zero || game.HasExited || DateTime.Now > deadline)
+                {
+                    timer.Stop();
+                    if (window != IntPtr.Zero) SetForegroundWindow(window);
+                    Close();
+                }
+            };
+            timer.Start();
+        }
+
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE devMode);
 
@@ -477,8 +515,8 @@ namespace Amped3Launcher
 
             try
             {
-                Process.Start(new ProcessStartInfo { FileName = exePath, Arguments = args, WorkingDirectory = distDir, UseShellExecute = false });
-                Close();
+                Process gameProcess = Process.Start(new ProcessStartInfo { FileName = exePath, Arguments = args, WorkingDirectory = distDir, UseShellExecute = false });
+                HandOverFocus(gameProcess);
             }
             catch (Exception ex)
             {

@@ -1,6 +1,7 @@
 // frame_graph.cpp - On-screen frame-time graph (F10 or --show_fps=true)
 //
-// Window and present hook adapted from Table-Tennis-Recomp's stats_window.cpp
+// Window and present hook adapted from Table-Tennis-Rockstar-PC's stats_window.cpp
+// (github.com/davidptrssvea/Table-Tennis-Rockstar-PC, MIT; see THIRD_PARTY_NOTICES.md)
 // and frame_pacer.cpp.
 
 #include "frame_graph.h"

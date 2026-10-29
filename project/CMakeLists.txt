@@ -55,7 +55,8 @@ endif()
 
 # Keep x64 FP exceptions masked (stock SDK v0.10.0 can unmask them through MXCSR
 # writes, crashing with STATUS_FLOAT_INEXACT_RESULT). Header overrides from
-# Table-Tennis-Recomp; the installed SDK stays unchanged.
+# Table-Tennis-Rockstar-PC (github.com/davidptrssvea/Table-Tennis-Rockstar-PC,
+# MIT); the installed SDK stays unchanged.
 target_include_directories(amped3 BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdk-overrides")
 if(TARGET amped3_recomp)
     target_include_directories(amped3_recomp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdk-overrides")
@@ -71,3 +72,25 @@ endif()
 list(REMOVE_ITEM AMPED3_HOST_SOURCES "${AMPED3_SDK_APP}")
 set_property(TARGET amped3 PROPERTY SOURCES "${AMPED3_HOST_SOURCES}")
 target_sources(amped3 PRIVATE sdk-overrides/rex_app.cpp)
+
+# Profile-guided optimization of the recompiled game code (tools\build_pgo.cmd):
+# AMPED3_PGO=generate builds an instrumented exe (counters written by the
+# scripted "pgodump" command); AMPED3_PGO=<file.profdata> uses a merged profile.
+set(AMPED3_PGO "" CACHE STRING "generate, or a .profdata file to optimize with")
+if(AMPED3_PGO STREQUAL "generate")
+    foreach(target amped3 amped3_recomp)
+        if(TARGET ${target})
+            target_compile_options(${target} PRIVATE -fprofile-instr-generate)
+        endif()
+    endforeach()
+    target_compile_definitions(amped3 PRIVATE AMPED3_PGO_GEN)
+    target_link_options(amped3 PRIVATE -fprofile-instr-generate)
+elseif(AMPED3_PGO)
+    foreach(target amped3 amped3_recomp)
+        if(TARGET ${target})
+            target_compile_options(${target} PRIVATE "-fprofile-instr-use=${AMPED3_PGO}"
+                -Wno-profile-instr-out-of-date -Wno-profile-instr-unprofiled
+                -Wno-profile-instr-missing)
+        endif()
+    endforeach()
+endif()

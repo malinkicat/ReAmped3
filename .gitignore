@@ -31,3 +31,5 @@ tools/local.env
 tools/local.cmd
 # Private working notes.
 HANDOVER.md
+build_pgo/
+pgo/
