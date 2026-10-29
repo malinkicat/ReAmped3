@@ -22,7 +22,8 @@ game_dir() {
   grep -o 'AMPED3_GAME_DIR=.*' tools/local.cmd | head -1 | cut -d= -f2- | tr -d '\r'
 }
 
-# The Deck-side launcher: Proton (Experimental if installed, else the newest),
+# The Deck-side launcher: Proton 10.0 by default (about 50% faster here than the
+# Proton 11-based Experimental and 11.0; PROTON_NAME overrides),
 # its own prefix in ~/ReAmped3/pfx, drawing on the desktop session's display.
 remote_run_script() {
   cat <<'EOF'
@@ -30,7 +31,7 @@ remote_run_script() {
 cd "$(dirname "$0")"
 here=$(pwd)
 common=$HOME/.steam/steam/steamapps/common
-proton="$common/${PROTON_NAME:-Proton - Experimental}/proton"
+proton="$common/${PROTON_NAME:-Proton 10.0}/proton"
 [ -x "$proton" ] || proton=$(ls -d "$common"/Proton\ [0-9]*/proton 2>/dev/null | sort -V | tail -1)
 [ -x "$proton" ] || { echo "no Proton found in $common (install one from Steam)"; exit 1; }
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=$HOME/.steam/steam

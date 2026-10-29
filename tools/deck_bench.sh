@@ -65,6 +65,8 @@ while sleep 1.5; do
   [ $now -gt 300 ] && { echo "$label: timeout"; pad "speed 1"; break; }
 done
 [ $riding = 1 ] || { tools/deck.sh stop >/dev/null; exit 1; }
+# Linux per-thread CPU time over 10 s of riding (Wine's own threads included).
+( sleep 12; "${SSH[@]}" 'pid=$(pgrep -f "^Z:.*amped3\.exe" | head -1); snap() { for t in /proc/$pid/task/*; do echo "$(cat $t/comm 2>/dev/null)|$(sed "s/.*) //" $t/stat 2>/dev/null | awk "{print \$12+\$13}")|${t##*/}"; done; }; snap > ReAmped3/.rt_a; sleep 10; snap > ReAmped3/.rt_b; awk -F"|" "NR==FNR{a[\$3]=\$2; next} {d=\$2-a[\$3]; if (d>5) printf \"%5.1f%% %s\n\", d/10, \$1}" ReAmped3/.rt_a ReAmped3/.rt_b | sort -rn; rm -f ReAmped3/.rt_a ReAmped3/.rt_b' > "$S/threads_$label.txt" 2>&1 ) &
 if [ -n "$BENCH_PROFILE" ]; then
   # BENCH_PROFILE=1: a 10 s CPU profile from 10 s into the ride -> $S/cpu_profile_<label>.csv
   sleep 10; pad "profile 10"; sleep $((secs - 6))
