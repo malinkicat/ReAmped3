@@ -46,6 +46,18 @@ if [ -n "$session" ]; then
   done < "/proc/$session/environ"
 fi
 echo "proton: $proton"
+# Read-only once-a-second record of clocks, load and power while the game
+# runs (clocks.csv): GPU MHz, GPU busy %, APU power W, mean CPU MHz, temp C.
+(
+  gpu=$(grep -l amdgpu /sys/class/hwmon/hwmon*/name | head -1 | xargs dirname)
+  echo "time,gpu_mhz,gpu_busy,apu_w,cpu_mhz,temp_c"
+  sleep 5
+  while pgrep -f '[a]mped3\.exe' >/dev/null; do
+    cpu=$(awk '{s+=$1; n++} END{printf "%d", s/n/1000}' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq)
+    echo "$(date +%T),$(( $(cat $gpu/freq1_input) / 1000000 )),$(cat /sys/class/drm/card0/device/gpu_busy_percent),$(awk '{printf "%.1f", $1/1000000}' $gpu/power1_average),$cpu,$(( $(cat $gpu/temp1_input) / 1000 ))"
+    sleep 1
+  done
+) > clocks.csv 2>/dev/null &
 # Debug flags set by tools/deck.sh flags, also applied when Steam starts this.
 extra=()
 [ -f extra_args.txt ] && read -r -a extra < extra_args.txt
