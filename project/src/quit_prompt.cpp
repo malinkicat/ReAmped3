@@ -31,7 +31,7 @@ namespace {
 
 constexpr uint16_t kPadStart = 0x0010, kPadBack = 0x0020, kPadA = 0x1000, kPadB = 0x2000;
 constexpr uint32_t kNavy = 0x0f1724, kHeader = 0x1c2e48, kBorder = 0x263852, kField = 0x18253a,
-                   kOrange = 0xff7a29, kText = 0xe6eef6, kMuted = 0xa9bbd0;
+                   kText = 0xe6eef6, kMuted = 0xa9bbd0;
 
 rex::ui::WindowedAppContext* g_app_context = nullptr;
 rex::ui::ImGuiDrawer* g_drawer = nullptr;
@@ -71,7 +71,7 @@ class QuitDialog : public rex::ui::ImGuiDialog {
     if (ImGui::BeginPopupModal(id, nullptr,
                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                    ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
-                                   ImGuiWindowFlags_NoScrollbar)) {
+                                   ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav)) {
       const int choice = Input();
       Draw(scale, width);
       if (choice) {
@@ -144,7 +144,8 @@ class QuitDialog : public rex::ui::ImGuiDialog {
     draw->AddText(ImVec2(o.x + pad, y), Color(kMuted), "Progress since your last save is lost.");
     ImGui::PopFont();
     y += 46.0f * scale;
-    // Buttons: Back to game (plain), Quit (orange), with their pad glyphs.
+    // Buttons: both plain, no highlight - they're pressed with A / B (or a
+    // click), never selected, so nothing may look focused.
     const float bh = 48.0f * scale, gap = 12.0f * scale;
     const float bw = (width - 2.0f * pad - gap) * 0.5f;
     struct Button {
@@ -157,10 +158,8 @@ class QuitDialog : public rex::ui::ImGuiDialog {
     ImGui::PushFont(ui_bold, 22.0f * scale);
     for (int i = 0; i < 2; ++i) {
       const ImVec2 b0(o.x + pad + float(i) * (bw + gap), y), b1(b0.x + bw, y + bh);
-      draw->AddRectFilled(b0, b1, Color(buttons[i].action ? kOrange : kField), 8.0f * scale);
-      if (!buttons[i].action) {
-        draw->AddRect(b0, b1, Color(kBorder), 8.0f * scale);
-      }
+      draw->AddRectFilled(b0, b1, Color(kField), 8.0f * scale);
+      draw->AddRect(b0, b1, Color(kBorder), 8.0f * scale);
       const float r = 11.0f * scale;
       const ImVec2 label_size = ImGui::CalcTextSize(buttons[i].label);
       const float content_w = 2.0f * r + 10.0f * scale + label_size.x;
