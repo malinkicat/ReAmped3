@@ -648,3 +648,27 @@ registers = ["r31", "f0"]
 address = 0x8222DB18
 name = "Amped3_ClothJob"
 registers = ["r3"]
+
+# Native zlib inflate_fast (src/native_inflate.cpp, --native_inflate).
+[[midasm_hook]]
+address = 0x822008B8
+name = "Amped3_InflateFast"
+registers = ["r3", "r4"]
+return_on_true = true
+
+# Right after inflate_fast returns in inflate (--native_inflate_verify).
+[[midasm_hook]]
+address = 0x821FFC98
+name = "Amped3_InflateFastDone"
+registers = ["r23"]
+
+# Debug: the loader's 1 s wait (src/load_wait_probe.cpp, --load_wait_probe=true).
+[[midasm_hook]]
+address = 0x82167940
+name = "Amped3_LoadWaitEntry"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x8216796C
+name = "Amped3_LoadWaitDone"
+registers = []

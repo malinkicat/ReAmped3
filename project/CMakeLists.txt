@@ -28,6 +28,8 @@ set(AMPED3_SOURCES
     src/pix_capture.cpp
     src/watch_probe.cpp
     src/cloth_probe.cpp
+    src/native_inflate.cpp
+    src/load_wait_probe.cpp
 )
 
 if(WIN32)
