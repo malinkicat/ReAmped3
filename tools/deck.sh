@@ -47,7 +47,7 @@ fi
 echo "proton: $proton"
 exec "$proton" run "$here/amped3.exe" --game_data_root="Z:${here//\//\\}\\game" \
   --resolution_scale=1 --draw_resolution_scale_x=1 --draw_resolution_scale_y=1 \
-  --window_width=1280 --window_height=800 --fullscreen=false --framerate=60 --mnk_mode=true \
+  --window_width=1280 --window_height=800 --fullscreen=true --framerate=60 --mnk_mode=true \
   --log_file=amped3.log --log_flush_interval=1 "$@"
 EOF
 }
