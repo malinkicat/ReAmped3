@@ -15,6 +15,8 @@
 
 #include <rex/assert.h>
 #include <rex/cvar.h>
+
+REXCVAR_DECLARE(std::string, gpu_backend);
 #include <rex/ui/flags.h>
 #include <rex/kernel/crt/heap.h>
 #include <rex/filesystem.h>
@@ -328,7 +330,9 @@ bool ReXApp::SetupPresentation() {
   OnPreSetup(config_);
 
   if (!config_.graphics && !config_.gpu_plugin.empty()) {
-    config_.graphics = rex::system::LoadGpuPlugin(config_.gpu_plugin);
+    // Amped 3: --gpu_backend picks the plugin's backend (d3d12, vulkan; any =
+    // the plugin's first choice, D3D12 on Windows).
+    config_.graphics = rex::system::LoadGpuPlugin(config_.gpu_plugin, REXCVAR_GET(gpu_backend));
     if (!config_.graphics) {
       // Fatal by design: no silent headless fallback.
       auto msg =
