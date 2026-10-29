@@ -37,7 +37,7 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     Copy-Item (Join-Path $crt.FullName $dll) $dir
 }
 @(
-    "Amped 3 recomp - test build ($(Get-Date -Format yyyy-MM-dd))",
+    "ReAmped 3 - test build ($(Get-Date -Format yyyy-MM-dd))",
     "",
     "Needs: Windows 10/11 x64, a CPU with AVX2, a DirectX 12 GPU, and your own",
     "extracted copy of Amped 3 (the folder with default.xex). No game files are",
@@ -61,7 +61,7 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     'start "" "%~dp0amped3_launcher.exe" --frame_times=true --swap_times=true --fps_log=true --gpu_pass_profile=true --gpu_pass_profile_passes=false'
 ) | Set-Content -Encoding ascii (Join-Path $dir "play_diag.bat")
 @(
-    "Amped 3 test checklist",
+    "ReAmped 3 test checklist",
     "",
     "Use play_diag.bat for each run. For each setting, ride for 30+ seconds,",
     "then quit and send back amped3.log, settings.ini and the .csv files before the next run",
