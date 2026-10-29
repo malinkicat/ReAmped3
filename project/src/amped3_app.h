@@ -202,6 +202,11 @@ class Amped3App : public rex::ReXApp {
     // shortcut; otherwise fullscreen can open behind other windows.
     if (window()) {
       SetForegroundWindow(static_cast<HWND>(window()->GetNativeWindowHandle()));
+      // No mouse pointer over the game: hidden in fullscreen, and in a window
+      // shown only while the mouse moves.
+      window()->SetCursorVisibility(window()->IsFullscreen()
+                                        ? rex::ui::Window::CursorVisibility::kHidden
+                                        : rex::ui::Window::CursorVisibility::kAutoHidden);
     }
     if (REXCVAR_GET(hang_watch) > 0) {
       amped3::hang_watch::Start(runtime(), REXCVAR_GET(hang_watch));
