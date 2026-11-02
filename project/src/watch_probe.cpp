@@ -31,6 +31,11 @@ REXCVAR_DEFINE_INT32(watch_actor_offset, 0, "Debug",
                      "Actor field offset the scripted \"watch\" command puts a hardware write "
                      "breakpoint on (0 = off)");
 
+// --watch_rider_offset=N (N != 0): watch rider+N instead (N may be negative:
+// the trick tuning sits before the rider object), for reads and writes.
+REXCVAR_DEFINE_INT32(watch_rider_offset, 0, "Debug",
+                     "Rider offset the scripted \"watch\" command watches for reads and writes (0 = off)");
+
 namespace {
 
 std::atomic<bool> g_requested{false};
@@ -74,7 +79,7 @@ LONG CALLBACK WatchHandler(EXCEPTION_POINTERS* info) {
       for (const auto& [at, n] : g_writes) {
         out += fmt::format(" [amped3.exe+{:X} {}x last={:.4f}]", at, n, g_last_value[at]);
       }
-      REXLOG_INFO("WatchProbe: writes in 2 s:{}", out);
+      REXLOG_INFO("WatchProbe: accesses in 2 s:{}", out);
       g_writes.clear();
       g_window_start = now;
     }
@@ -98,22 +103,28 @@ void OnRiderUpdate(uint32_t rider) {
     return;
   }
   const int32_t field = REXCVAR_GET(watch_actor_offset);
+  const int32_t rider_field = REXCVAR_GET(watch_rider_offset);
   auto* memory = REX_KERNEL_MEMORY();
-  const uint32_t holder = LoadBE32(memory->TranslateVirtual<const uint8_t*>(rider + 1500));
-  if (!field || !holder) {
-    g_installed = false;
-    return;
-  }
-  const uint32_t actor = LoadBE32(memory->TranslateVirtual<const uint8_t*>(holder + 20));
-  if (!actor) {
-    g_installed = false;
-    return;
-  }
-  g_host_address = memory->TranslateVirtual<uint8_t*>(actor + uint32_t(field));
-  // A rider that uses the field (not 0 - the player's may stay unused).
-  if (LoadBE32(g_host_address) == 0) {
-    g_installed = false;
-    return;
+  if (rider_field) {
+    g_host_address = memory->TranslateVirtual<uint8_t*>(rider + uint32_t(rider_field));
+    REXLOG_INFO("WatchProbe: rider {:08X}+({}) = {}", rider, rider_field, LoadBE32(g_host_address));
+  } else {
+    const uint32_t holder = LoadBE32(memory->TranslateVirtual<const uint8_t*>(rider + 1500));
+    if (!field || !holder) {
+      g_installed = false;
+      return;
+    }
+    const uint32_t actor = LoadBE32(memory->TranslateVirtual<const uint8_t*>(holder + 20));
+    if (!actor) {
+      g_installed = false;
+      return;
+    }
+    g_host_address = memory->TranslateVirtual<uint8_t*>(actor + uint32_t(field));
+    // A rider that uses the field (not 0 - the player's may stay unused).
+    if (LoadBE32(g_host_address) == 0) {
+      g_installed = false;
+      return;
+    }
   }
   g_exe_base = uintptr_t(GetModuleHandleW(nullptr));
   AddVectoredExceptionHandler(1, WatchHandler);
@@ -140,7 +151,7 @@ void OnRiderUpdate(uint32_t rider) {
         if (GetThreadContext(thread, &context)) {
           context.Dr0 = DWORD64(g_host_address);
           // L0 enable, R/W0 = 01 (writes), LEN0 = 11 (4 bytes).
-          context.Dr7 = (context.Dr7 & ~DWORD64(0xF0003)) | 1 | (1 << 16) | (3 << 18);
+          context.Dr7 = (context.Dr7 & ~DWORD64(0xF0003)) | 1 | ((REXCVAR_GET(watch_rider_offset) ? 3 : 1) << 16) | (3 << 18);
           if (SetThreadContext(thread, &context)) ++armed;
         }
         ResumeThread(thread);
@@ -151,8 +162,7 @@ void OnRiderUpdate(uint32_t rider) {
     REXLOG_INFO("WatchProbe: breakpoint set on {} threads (caller {})", armed, caller);
   }).join();
   REXLOG_INFO("WatchProbe: value now {:.4f}", LoadBEFloat(g_host_address));
-  REXLOG_INFO("WatchProbe: watching rider {:08X} actor {:08X}+{} (host {})", rider, actor, field,
-              static_cast<void*>(g_host_address));
+  REXLOG_INFO("WatchProbe: watching rider {:08X} (host {})", rider, static_cast<void*>(g_host_address));
 }
 
 }  // namespace amped3::watch_probe

@@ -22,6 +22,9 @@
 
 REXCVAR_DEFINE_BOOL(crash_contact_time, true, "Game",
                     "Riders' contact counters (crash checks) count time (1/30 s), not frames");
+REXCVAR_DEFINE_BOOL(funbox_combo_time, true, "Game",
+                    "The funbox landing combo delay (a frame count in the tuning) keeps its 30 FPS length at higher caps");
+REXCVAR_DECLARE(int32_t, framerate);
 REXCVAR_DEFINE_BOOL(crash_probe, false, "Debug", "Log the riders' state changes (sub_82210148) by state and caller");
 
 namespace {
@@ -64,6 +67,15 @@ void Amped3_SetRiderStep(double step) { g_rider_step = float(step); }
 
 REX_EXTERN(__imp__sub_82225CB0);
 extern "C" REX_FUNC(sub_82225CB0) {
+  if (REXCVAR_GET(crash_probe)) {
+    static std::mutex seen_mutex;
+    static std::map<uint32_t, bool> seen;
+    std::lock_guard lock(seen_mutex);
+    if (!seen[ctx.r3.u32]) {
+      seen[ctx.r3.u32] = true;
+      REXLOG_INFO("crash_probe: rider {:08X}", ctx.r3.u32);
+    }
+  }
   if (!REXCVAR_GET(crash_contact_time)) {
     __imp__sub_82225CB0(ctx, base);
     return;
@@ -106,4 +118,24 @@ extern "C" REX_FUNC(sub_82210148) {
     }
   }
   __imp__sub_82210148(ctx, base);
+}
+
+// The trick tuning (sub_82233F88 loads NumFramesDelayForFunboxLandCombo into
+// +480; the object sits 0x1C80 before the rider's).
+REX_EXTERN(__imp__sub_82233F88);
+extern "C" REX_FUNC(sub_82233F88) {
+  const uint32_t object = ctx.r3.u32, lr = uint32_t(ctx.lr);
+  __imp__sub_82233F88(ctx, base);
+  // NumFramesDelayForFunboxLandCombo (5: 167 ms at the original 30 FPS):
+  // counted in frames, so scaled to the cap (unlimited: as at 60).
+  const int32_t rate = REXCVAR_GET(framerate);
+  if (REXCVAR_GET(funbox_combo_time) && rate != 30) {
+    const uint32_t frames = Load32(base, object + 480);
+    const double scale = (rate > 0 ? rate : 60) / 30.0;
+    if (frames > 0 && frames < 100) Store32(base, object + 480, uint32_t(frames * scale + 0.5));
+  }
+  if (REXCVAR_GET(crash_probe)) {
+    REXLOG_INFO("crash_probe: trick tuning object {:08X} (lr {:08X}): funbox land combo delay {} frames", object, lr,
+                Load32(base, object + 480));
+  }
 }
