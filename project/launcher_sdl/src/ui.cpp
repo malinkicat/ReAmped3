@@ -393,6 +393,9 @@ std::pair<std::string, std::string> Explain(App& a) {
     case Item::Fullscreen:
       return {"FULLSCREEN", "On: the game fills the display. Off: it plays in a window you can move."};
     case Item::ReampedLogo: return {"REAMPED LOGO", kReampedLogoHint};
+    case Item::SkipIntro:
+      return {"SKIP INTRO MOVIES", "On: the game starts without the 2K and Indie Built movies, straight to the loading "
+                                   "screen and the title. Off: they play first, as on the Xbox 360."};
     case Item::Tearing:
       return {"V-SYNC", a.deck ? "On: every frame waits for the screen, so the picture never tears. Off: a little "
                                  "less input lag, with some tearing."
@@ -739,7 +742,7 @@ void PollLaunch(App& a) {
 std::vector<Item> NavOrder(const App& a) {
   std::vector<Item> v = {Item::GameFolder, Item::Resolution, Item::FrameRate};
   if (a.st.fps_choice == kCustomFps) v.push_back(Item::CustomFps);
-  v.insert(v.end(), {Item::Fullscreen, Item::SharpUi, Item::ReampedLogo, Item::Tearing, Item::SinglePass, Item::AA, Item::Scaling, Item::Music, Item::UiSize, Item::Recommended, Item::Save, Item::Controls, Item::Ride});
+  v.insert(v.end(), {Item::Fullscreen, Item::SharpUi, Item::ReampedLogo, Item::Tearing, Item::SkipIntro, Item::SinglePass, Item::AA, Item::Scaling, Item::Music, Item::UiSize, Item::Recommended, Item::Save, Item::Controls, Item::Ride});
   if (!a.deck) v.erase(std::find(v.begin(), v.end(), Item::Recommended));
   return v;
 }
@@ -792,6 +795,7 @@ void Activate(App& a) {
     case Item::SharpUi: a.st.sharp_ui = !a.st.sharp_ui; break;
     case Item::ReampedLogo: a.st.reamped_logo = !a.st.reamped_logo; break;
     case Item::Tearing: a.st.allow_tearing = !a.st.allow_tearing; break;
+    case Item::SkipIntro: a.st.skip_intro = !a.st.skip_intro; break;
     case Item::SinglePass:
       a.st.single_pass = !a.st.single_pass;
       SinglePassChanged(a);
@@ -1523,8 +1527,12 @@ void DrawMain(App& a) {
   a.L -= 290;
   // V-Sync is the opposite of allow_tearing (what the settings file keeps).
   bool vsync = !a.st.allow_tearing;
-  CheckRow(a, Item::Tearing, 414, a.deck ? "V-Sync" : "V-Sync (off for G-Sync / FreeSync, above 60)", vsync);
+  CheckRow(a, Item::Tearing, 414, "V-Sync", vsync);
   a.st.allow_tearing = !vsync;
+  // Beside it: the publisher movies at start.
+  a.L += 150;
+  CheckRow(a, Item::SkipIntro, 414, "Skip intro movies", a.st.skip_intro);
+  a.L -= 150;
   const bool single_pass = a.st.single_pass;
   CheckRow(a, Item::SinglePass, 440, "Fast single-pass rendering (busy scenes)",
            a.st.single_pass);

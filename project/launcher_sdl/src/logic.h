@@ -62,6 +62,8 @@ struct Settings {
   // The title screen and the start-up loading screen with the ReAmped 3 logo
   // (made from the game's own) instead of Amped 3's -> --title_logo=true.
   bool reamped_logo = false;
+  // Skip the 2K and Indie Built movies at start (--skip_intro).
+  bool skip_intro = false;
   // Controller buttons remapped (Controls page): "A=B,B=A" (physical=what
   // the game sees), empty for none -> --pad_button_map.
   std::string pad_map;
@@ -176,7 +178,7 @@ std::string BuildCommandLine(const std::string& exe, const std::string& args);
 std::string QuoteArg(const std::string& arg);
 
 // Focus targets on the main screen.
-enum class Item { GameFolder, Resolution, FrameRate, CustomFps, Fullscreen, SharpUi, ReampedLogo, Tearing, SinglePass, AA, Scaling, Music, UiSize, Controls, Recommended, Save, Quit, Ride };
+enum class Item { GameFolder, Resolution, FrameRate, CustomFps, Fullscreen, SharpUi, ReampedLogo, Tearing, SkipIntro, SinglePass, AA, Scaling, Music, UiSize, Controls, Recommended, Save, Quit, Ride };
 // Later runs (settings.ini exists, valid folder): RIDE. First run: the first
 // setting. No valid folder: the game folder.
 Item InitialFocus(bool settings_exist, bool folder_valid);

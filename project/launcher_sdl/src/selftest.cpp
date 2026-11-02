@@ -56,7 +56,7 @@ Settings Make(const std::string& res, int fps, bool fullscreen, bool tearing, co
 void CommandLines() {
   const std::string dist = "C:\\ReAmped3\\";
   const std::string tail =
-      " --mnk_mode=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false --anisotropic_override=5"
+      " --mnk_mode=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false --skip_intro=false --anisotropic_override=5"
       " --log_file=\"C:\\ReAmped3\\amped3.log\"";
   const std::string vsync = " --vsync=true --d3d12_allow_variable_refresh_rate_and_tearing=false";
   struct Case {
@@ -95,7 +95,7 @@ void CommandLines() {
        {3840, 2160, 144}, {},
        "--game_data_root=\"C:\\Games\\Amped 3\" --resolution_scale=3 --draw_resolution_scale_x=3 --draw_resolution_scale_y=3"
        " --window_width=3840 --window_height=2160 --fullscreen=true --swap_post_effect=none --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=72"
-       " --mnk_mode=true --frame_generation=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false"
+       " --mnk_mode=true --frame_generation=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false --skip_intro=false"
        " --anisotropic_override=5"
        " --log_file=\"C:\\ReAmped3\\amped3.log\"" + vsync},
   };
@@ -109,7 +109,7 @@ void CommandLines() {
           "--game_data_root=\"Z:\\home\\deck\\ReAmped3\\game\" --resolution_scale=1 --draw_resolution_scale_x=1 --draw_resolution_scale_y=1"
           " --window_width=1280 --window_height=800 --fullscreen=true --present_letterbox=false --tall_squeeze=0.9000"
           " --swap_post_effect=smaa --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=30"
-          " --mnk_mode=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false --anisotropic_override=5 --log_file=\"Z:\\home\\deck\\ReAmped3\\amped3.log\" --log_file=amped3.log --log_flush_interval=1",
+          " --mnk_mode=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false --skip_intro=false --anisotropic_override=5 --log_file=\"Z:\\home\\deck\\ReAmped3\\amped3.log\" --log_file=amped3.log --log_flush_interval=1",
           "command line: Steam Deck defaults");
   Settings deck90 = deck;
   deck90.fps_choice = 90;
@@ -119,6 +119,18 @@ void CommandLines() {
 
   // Sharpening off: a plain copy when the frame is the screen's size, CAS
   // (no extra sharpening) when it's shrunk; FXAA Extreme reads as FXAA.
+  {
+    // Skip intro movies: off by default, and always passed (the game alone skips them).
+    Settings intro = Make("4k", 60, true, true, "smaa", 0);
+    Check(BuildGameArgs(intro, dist, {3840, 2160, 60}, {}).find(" --skip_intro=false") != std::string::npos,
+          "skip intro off by default, passed");
+    intro.skip_intro = true;
+    Check(BuildGameArgs(intro, dist, {3840, 2160, 60}, {}).find(" --skip_intro=true") != std::string::npos &&
+              FormatSettings(intro).find("skip_intro=true") != std::string::npos,
+          "skip intro on: passed and saved");
+    const std::string saved = FormatSettings(intro);
+    Check(ParseSettings(&saved, false).skip_intro, "skip intro read back");
+  }
   Check(BuildGameArgs(Make("4k", 60, true, true, "smaa", 0), dist, {3840, 2160, 60}, {}).find(" --present_effect=bilinear") !=
             std::string::npos,
         "sharpening off at 4K: plain copy");
@@ -311,7 +323,7 @@ void SharpUi() {
   Settings s = ParseSettings(&on, false);
   Check(s.sharp_ui && FormatSettings(s).find("sharp_ui=true\r\n") != std::string::npos, "sharp UI on saved");
   Check(BuildGameArgs(s, "C:\\g\\", {}, {}).find("sharp_ui") == std::string::npos, "sharp UI on: no arg");
-  Check(BuildGameArgs(ParseSettings(nullptr, false), "C:\\g\\", {}, {}).find(" --sharp_ui=false") != std::string::npos,
+  Check(BuildGameArgs(ParseSettings(nullptr, false), "C:\\g\\", {}, {}).find(" --sharp_ui=false --skip_intro=false") != std::string::npos,
         "sharp UI off -> arg");
   // Reference values from tools/xpr_extract.py tiled_offset.
   Check(uipack::TiledOffset(5, 3, 64, 16) == 99 && uipack::TiledOffset(37, 9, 64, 16) == 1579 &&

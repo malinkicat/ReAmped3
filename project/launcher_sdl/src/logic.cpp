@@ -194,6 +194,7 @@ Settings ParseSettings(const std::string* text, bool deck) {
       else if (key == "board_spray") s.board_spray = ParseBool(val);
       else if (key == "sharp_ui") s.sharp_ui = ParseBool(val);
       else if (key == "reamped_logo") s.reamped_logo = ParseBool(val);
+      else if (key == "skip_intro") s.skip_intro = ParseBool(val);
       else if (key == "music_dir") s.music_dir = val;
       else if (key == "pad_map") s.pad_map = val;
       else if (key.rfind("key_", 0) == 0) SetKeys(s, key.substr(4), val);
@@ -289,6 +290,7 @@ std::string FormatSettings(const Settings& s) {
   if (!s.board_spray) out += "board_spray=false\r\n";
   out += "sharp_ui=" + b(s.sharp_ui) + "\r\n";
   if (s.reamped_logo) out += "reamped_logo=true\r\n";
+  if (s.skip_intro) out += "skip_intro=true\r\n";
   if (!s.music_dir.empty()) out += "music_dir=" + s.music_dir + "\r\n";
   if (!s.pad_map.empty()) out += "pad_map=" + s.pad_map + "\r\n";
   for (const auto& [id, keys] : s.keys) out += "key_" + id + "=" + keys + "\r\n";
@@ -582,6 +584,8 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
   if (!s.board_spray) args += " --board_spray=false";
   if (!s.sharp_ui) args += " --sharp_ui=false";
   if (s.reamped_logo) args += " --title_logo=true";
+  // Always said: the game on its own skips them.
+  args += std::string(" --skip_intro=") + (s.skip_intro ? "true" : "false");
   if (!s.music_dir.empty() && s.music == "mine") args += " --user_music_dir=\"" + s.music_dir + "\"";
   if (!s.pad_map.empty()) args += " --pad_button_map=" + s.pad_map;
   for (const auto& [id, keys] : s.keys) args += " --keybind_" + id + "=" + (keys.empty() ? "\"\"" : keys);

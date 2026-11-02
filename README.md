@@ -33,7 +33,7 @@ Launcher
 
 In the game
 - Ultrawide and 16:10: you see more of the mountain, nothing is stretched, and the HUD and menus stay 16:9.
-- Starts quick: the publisher movies are skipped and the logo and warning screens are one loading screen.
+- The logo and warning screens at start are one loading screen, and you can skip the 2K and Indie Built intro movies in the launcher (off by default).
 - Your own music, either from a folder or your streaming app (Spotify etc.). It only plays where the game's soundtrack would, so riding and the in-game menus, not the title, loading screens, cutscenes or event jingles. Tracks show up in the game's own radio popup and the D-pad skips them.
 - ReAmped 3 settings inside the game's own Options menu (Audio, Display, Extras).
 - Achievements, with a popup, a chime and a list showing your progress.
