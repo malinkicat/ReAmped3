@@ -11,6 +11,7 @@ namespace amped3::media_session {
 // Once per game frame: starts watching the system's media players the first
 // time --user_music is "system".
 void OnFrame();
+void OnQuit();  // the player stops with the game
 
 // Next (1) or previous (-1) track in that player.
 void Skip(int32_t delta);

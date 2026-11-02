@@ -43,6 +43,7 @@
 #include "quit_prompt.h"
 #include "pix_capture.h"
 #include "hang_watch.h"
+#include "media_session.h"
 #include "scripted_input.h"
 
 REXCVAR_DECLARE(bool, dump_image);
@@ -318,6 +319,11 @@ class Amped3App : public rex::ReXApp {
   }
 
   void OnShutdown() override { amped3::hang_watch::Stop(); }
+  // The window closing (the runtime then hard-exits, without OnShutdown).
+  bool OnWindowCloseRequested() override {
+    amped3::media_session::OnQuit();
+    return true;
+  }
 
   // Override virtual hooks for customization:
   // void OnPostInitLogging() override {}
@@ -337,6 +343,7 @@ class Amped3App : public rex::ReXApp {
       amped3::frame_graph::Show(window()->GetNativeWindowHandle(), REXCVAR_GET(framerate));
     }
     amped3::quit_prompt::Initialize(app_context(), imgui_drawer(), [this] {
+      amped3::media_session::OnQuit();
       if (window()) {
         window()->RequestClose();
       }

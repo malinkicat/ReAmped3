@@ -243,8 +243,12 @@ void RunFromFile() {
   int volume = MusicVolume();
   const auto started = std::chrono::steady_clock::now();
   bool launch_paused = false;
+  // The player starts by itself in game, as on Windows: once, as soon as
+  // run.sh reports it not playing (again after choosing it again).
+  bool autoplayed = false;
   for (;;) {
     if (!PlayerIsSource()) {
+      autoplayed = false;
       // At launch with the game's music chosen: a player already playing is
       // paused once (run.sh's first reports come a few seconds in).
       if (!launch_paused && std::chrono::steady_clock::now() - started < std::chrono::seconds(15)) {
@@ -297,6 +301,11 @@ void RunFromFile() {
     }
     if (status == "playing") last_text = text;
     ReportToRuntime(playing, last_text);
+    if (!autoplayed && !title && !paused_by_us && status == "stopped") {
+      autoplayed = true;
+      command("play");
+      REXLOG_INFO("Amped3: media session: started the player");
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 }
@@ -401,6 +410,7 @@ void Run() {
         PressMediaPlay();
         REXLOG_INFO("Amped3: media session: started Spotify with the media key (no media session yet)");
       }
+      if (!chosen) g_skip.store(0);  // nothing to skip in (no player at all)
       bool playing = false;
       if (chosen) {
         if (chosen->SourceAppUserModelId() != followed) {
@@ -493,6 +503,42 @@ void Run() {
 }
 
 }  // namespace
+
+void OnQuit() {
+  // The player was the game's music: it stops with the game (paused). Once
+  // (the quit prompt and the window closing both get here).
+  static std::atomic<bool> done{false};
+  if (!PlayerIsSource() || done.exchange(true)) return;
+  if (UnderWine()) {
+    // ReAmped3.sh pauses it once the game has gone.
+    std::ofstream out(rex::filesystem::GetExecutableFolder() / "media_command.txt", std::ios::binary | std::ios::app);
+    out << "pause\n";
+    REXLOG_INFO("Amped3: media session: pausing the player (quit)");
+    return;
+  }
+  std::string app;
+  {
+    std::lock_guard lock(g_player_mutex);
+    app = g_player_app;
+  }
+  if (app.empty()) return;
+  // Its own thread: WinRT's blocking get() needs a multi-threaded apartment.
+  std::thread([app] {
+    try {
+      winrt::init_apartment(winrt::apartment_type::multi_threaded);
+      const auto manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
+      for (const auto& session : manager.GetSessions()) {
+        if (winrt::to_string(session.SourceAppUserModelId()) == app &&
+            session.GetPlaybackInfo().PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing) {
+          session.TryPauseAsync().get();
+          REXLOG_INFO("Amped3: media session: paused {} (quit)", app);
+        }
+      }
+    } catch (const winrt::hresult_error& e) {
+      REXLOG_WARN("Amped3: media session: pause at quit failed ({:#x})", static_cast<uint32_t>(e.code()));
+    }
+  }).join();
+}
 
 void OnFrame() {
   // Whatever the source: with the game's music chosen it pauses a player

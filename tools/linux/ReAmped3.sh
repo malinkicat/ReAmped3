@@ -42,8 +42,9 @@ wait_game() {
   while pgrep -f '[a]mped3\.exe' >/dev/null; do
     players=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
       --method org.freedesktop.DBus.ListNames 2>/dev/null | grep -o "org\.mpris\.MediaPlayer2\.[A-Za-z0-9_.-]*" | sort -r)
-    playing=""
+    playing="" first=""
     for p in $(echo "$players" | grep -i spotify) $(echo "$players" | grep -vi spotify); do
+      [ -n "$first" ] || first=$p
       q "$p" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus | grep -q Playing && { playing=$p; break; }
     done
     # The game appends one command a line: take the file (new ones go to a
@@ -52,15 +53,19 @@ wait_game() {
       sleep 0.2  # a write the game had already begun lands in the taken file first
       while IFS= read -r cmd || [ -n "$cmd" ]; do
       cmd=${cmd%$'\r'}
-      [ -n "$playing" ] && case "$cmd" in
-        next) q "$playing" --method org.mpris.MediaPlayer2.Player.Next >/dev/null ;;
-        previous) q "$playing" --method org.mpris.MediaPlayer2.Player.Previous >/dev/null ;;
-        pause) q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=$playing; playing="" ;;
+      # Nothing playing: the player we paused, else the first one open
+      # (Spotify first), e.g. Spotify just opened and not started yet.
+      p=${playing:-${paused_player:-$first}}
+      [ -n "$p" ] && case "$cmd" in
+        next|previous)
+          q "$p" --method org.mpris.MediaPlayer2.Player.$([ "$cmd" = next ] && echo Next || echo Previous) >/dev/null
+          # A skip with it stopped (not paused for the game's music): play too.
+          [ -z "$playing" ] && [ -z "$paused_player" ] && { q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; } ;;
+        pause) [ -n "$playing" ] && { q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=$playing; playing=""; } ;;
+        play) [ -z "$playing" ] && { q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; paused_player=""; } ;;
+        volume\ *) v=${cmd#volume }
+          q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
       esac
-      case "$cmd" in volume\ *) v=${cmd#volume }; p=${playing:-$paused_player}
-        [ -n "$p" ] && q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
-      esac
-      [ "$cmd" = play ] && [ -n "$paused_player" ] && { q "$paused_player" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$paused_player; paused_player=""; }
       done < media_command.work
       rm -f media_command.work
     fi
@@ -75,8 +80,13 @@ wait_game() {
     mv -f .media_session.tmp media_session.txt
     sleep 1
   done
+  # The game quit with the player as its music (its last request): pause it.
+  if grep -qx 'pause' media_command.txt 2>/dev/null && [ -n "$playing" ]; then
+    q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null
+  fi
   rm -f media_session.txt media_command.txt
 ) >/dev/null 2>&1 &
+bridge=$!
 
 # Controller input even when the window isn't focused (gamescope/KWin don't
 # always give a Proton window focus).
@@ -85,4 +95,9 @@ export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
 inhibit=()
 pgrep -u "$(id -u)" -x plasmashell >/dev/null && command -v kde-inhibit >/dev/null &&
   inhibit=(kde-inhibit --power --screenSaver)
-exec "${inhibit[@]}" "$proton" run "$here/amped3_launcher.exe" --log_file=amped3.log "$@"
+# Not exec: the bridge's last step (pausing the player when the game quits)
+# runs after the game has gone, and Steam ends what's left when this exits.
+"${inhibit[@]}" "$proton" run "$here/amped3_launcher.exe" --log_file=amped3.log "$@"
+status=$?
+wait "$bridge"
+exit $status

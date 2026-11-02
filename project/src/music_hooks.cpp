@@ -45,7 +45,9 @@ extern "C" REX_FUNC(sub_82490928) {
   if (REXCVAR_GET(music_hook_log)) {
     REXLOG_INFO("Amped3: song change (direction {}){}", direction, user_music ? ": your music" : "");
   }
-  if (user_music) {
+  // Another player chosen: its skip even while it's paused or stopped (the
+  // game's own songs are silent then, so changing them did nothing heard).
+  if (user_music || amped3::media_session::Active()) {
     amped3::now_playing::Skip(direction == 2 ? -1 : 1);
     return;
   }
