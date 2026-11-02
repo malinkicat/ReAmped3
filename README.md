@@ -13,7 +13,7 @@ You can play through the story, make riders, ride the open mountain and do event
 1. Grab the latest zip from the [Releases page](https://github.com/malinkicat/ReAmped3/releases) and unzip it anywhere.
 2. Run `amped3_launcher.exe`, pick your extracted Amped 3 folder (the one with `default.xex`), set your options and hit RIDE.
 
-Steam Deck or a Linux PC: it runs through Steam's Proton 10, so you need Steam installed (the normal version, not the Flatpak one for now). The zip's README.txt has the steps (you add `run.sh` to Steam as a non-Steam game). It's only been tested on the Steam Deck so far.
+Steam Deck or a Linux PC: it runs through Steam's Proton 10, so you need Steam installed (the normal version, not the Flatpak one for now). The zip's README.txt has the steps (you add `ReAmped3.sh` to Steam as a non-Steam game). It's only been tested on the Steam Deck so far.
 
 If you'd rather build it yourself from source, see [Building from source](#building-from-source).
 

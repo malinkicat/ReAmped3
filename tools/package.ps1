@@ -48,7 +48,7 @@ $commit = (git -C (Join-Path $PSScriptRoot "..") rev-parse --short HEAD 2>$null)
 if ($commit -and (git -C (Join-Path $PSScriptRoot "..") status --porcelain 2>$null)) { $commit += "+" }
 "v$version  build $(Get-Date -Format yyyy-MM-dd) $commit".Trim() | Set-Content -Encoding ascii (Join-Path $dir "version.txt")
 # Steam Deck / Linux: starts the launcher under Steam's Proton (LF line endings kept).
-Copy-Item (Join-Path $PSScriptRoot "linux\run.sh") $dir
+Copy-Item (Join-Path $PSScriptRoot "linux\ReAmped3.sh") $dir
 # The upscaler the launcher runs to make the sharp UI pack on the player's PC
 # from their own game files (ui_pack.cpp): Real-ESRGAN ncnn Vulkan v0.2.5.0
 # and two of its models, with their licenses. Not in git (~47 MB):
@@ -113,7 +113,7 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     "Steam Deck or Linux PC: runs under Steam's Proton (install Proton 10.0",
     "from Steam: Library > Tools; Flatpak Steam isn't supported yet). Unzip it",
     "into your home folder (Deck: in Desktop Mode).",
-    "Then Steam > Add a Non-Steam Game > Browse (show all files) > run.sh.",
+    "Then Steam > Add a Non-Steam Game > Browse (show all files) > ReAmped3.sh.",
     "Start it from Steam (on the Deck, Desktop or Gaming Mode). The game folder",
     "browser sees your Linux files under Z:. On the Steam Deck, Recommended sets",
     "the best settings. 'Your streaming app' works with any MPRIS player",
@@ -169,7 +169,7 @@ $zip = Join-Path (Join-Path $root $Out) "$Name.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue
 # Not Compress-Archive: Windows PowerShell's writes backslash paths and no
 # Unix permissions, so on Linux the folders unzip unreadable (drw-r--r--) and
-# run.sh needs a chmod. Forward slashes, folders 755, files 644, run.sh 755.
+# ReAmped3.sh needs a chmod. Forward slashes, folders 755, files 644, ReAmped3.sh 755.
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $stream = [System.IO.File]::Open($zip, [System.IO.FileMode]::CreateNew)
 $archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
@@ -184,7 +184,7 @@ try {
     foreach ($file in Get-ChildItem $dir -Recurse -File) {
         $name = $file.FullName.Substring($base.Length + 1).Replace('\', '/')
         $entry = $archive.CreateEntry($name, [System.IO.Compression.CompressionLevel]::Optimal)
-        $mode = if ($file.Name -eq "run.sh") { 0x81ED } else { 0x81A4 }   # -rwxr-xr-x / -rw-r--r--
+        $mode = if ($file.Name -eq "ReAmped3.sh") { 0x81ED } else { 0x81A4 }   # -rwxr-xr-x / -rw-r--r--
         $entry.ExternalAttributes = $mode -shl 16
         $entry.LastWriteTime = $file.LastWriteTime
         $dst = $entry.Open()
