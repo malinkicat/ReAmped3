@@ -234,8 +234,21 @@ void RunFromFile() {
     if (!out) REXLOG_WARN("Amped3: media session: couldn't write media_command.txt");
   };
   int volume = MusicVolume();
+  const auto started = std::chrono::steady_clock::now();
+  bool launch_paused = false;
   for (;;) {
     if (!PlayerIsSource()) {
+      // At launch with the game's music chosen: a player already playing is
+      // paused once (run.sh's first reports come a few seconds in).
+      if (!launch_paused && std::chrono::steady_clock::now() - started < std::chrono::seconds(15)) {
+        std::string status;
+        if (std::ifstream in(folder / "media_session.txt"); in) std::getline(in, status);
+        if (status == "playing") {
+          launch_paused = true;
+          command("pause");
+          REXLOG_INFO("Amped3: media session: paused the player at launch (the game's music is chosen)");
+        }
+      }
       // Another source chosen: the player's music isn't the game's any more,
       // and the player is paused.
       if (was_playing) {
@@ -310,8 +323,22 @@ void Run() {
     auto turn_start = std::chrono::steady_clock::now();
     uint32_t game_turn_starts = 0;               // the game's song starts counted from
     auto game_turn_since = std::chrono::steady_clock::now();
+    bool launch_checked = false;
     for (;;) {
       if (!PlayerIsSource()) {
+        // At launch with the game's soundtrack (or your files) chosen: a player
+        // already playing is paused, once, so the game's music takes over.
+        // (Not again after that: playing one by hand mid-game is yours.)
+        if (!launch_checked) {
+          launch_checked = true;
+          for (const auto& session : manager.GetSessions()) {
+            if (is_playing(session)) {
+              session.TryPauseAsync().get();
+              REXLOG_INFO("Amped3: media session: paused {} at launch (the game's music is chosen)",
+                          winrt::to_string(session.SourceAppUserModelId()));
+            }
+          }
+        }
         // Another source chosen: the player's music isn't the game's any more,
         // and the player is paused (it would play on over the game's music).
         if (was_playing) {
@@ -327,6 +354,7 @@ void Run() {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         continue;
       }
+      launch_checked = true;
       const bool turns = TurnsMode();
       if (!turns && g_game_turn) g_game_turn = false;
       const bool title = TitleOwnsMusic();
@@ -460,8 +488,8 @@ void Run() {
 }  // namespace
 
 void OnFrame() {
-  const std::string mode = rex::cvar::GetFlagByName("user_music");
-  if (mode != "system" && mode != "mix") return;
+  // Whatever the source: with the game's music chosen it pauses a player
+  // already playing at launch, and it follows a switch to the player.
   std::call_once(g_started, [] { std::thread(Run).detach(); });
 }
 
