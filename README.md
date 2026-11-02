@@ -32,7 +32,7 @@ Launcher
 - Sharp UI: the game's own menus, fonts and HUD art upscaled 4x on your PC (2x on the Deck) with Real-ESRGAN. It's an offline image upscaler, runs once (about 5 minutes, and you can ride while it works) and keeps the result. Nothing gets downloaded or uploaded and we don't ship any game art.
 - UI size: shrink everything, or each part on its own (menus, HUD, help tips, radio popup, button legends). On the Deck the HUD and tips can go up to 150%.
 - Controls: remap the pad and keyboard, and each row tells you what it does in the game.
-- Music, the ReAmped logo option, and Recommended settings for the Steam Deck.
+- Music and the ReAmped logo option. On a Steam Deck the first start picks the settings that run best there.
 - Works with a controller, including on the Deck.
 - If the game can't start, the launcher stays open and says why (for example a CPU without AVX2) instead of just closing.
 
@@ -72,7 +72,7 @@ PC: RTX 2080 Ti, Ryzen 9 3900X, Windows 11, frame rate unlocked, default setting
 
 At 4K the graphics card isn't the limit here, the CPU is (the game's own main thread and the emulated GPU).
 
-Steam Deck OLED, Proton 10, Recommended settings (full 1280x800 screen, SMAA, single-pass on)
+Steam Deck OLED, Proton 10, the first-start Deck settings (full 1280x800 screen, SMAA, single-pass on)
 
 | Frame rate setting | Average | 1% low |
 |---|---|---|

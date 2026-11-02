@@ -459,10 +459,6 @@ std::pair<std::string, std::string> Explain(App& a) {
                             "screen)"
                           : "") +
                   ". Applies when the game starts."};
-    case Item::Recommended:
-      return {"RECOMMENDED SETTINGS",
-              "Recommended: sets what runs best on the Steam Deck: the full 1280x800 screen, 60 FPS, SMAA, fast single-pass rendering "
-              "and V-Sync, with help tips at 130% so they are easy to read. Measured in one of the heaviest open-world areas: near-locked at 60."};
     case Item::Save: return {"SAVE", "Saves these settings now (RIDE and Quit save them too)."};
     default: return {};
   }
@@ -774,13 +770,12 @@ void PollLaunch(App& a) {
 std::vector<Item> NavOrder(const App& a) {
   std::vector<Item> v = {Item::GameFolder, Item::Resolution, Item::FrameRate};
   if (a.st.fps_choice == kCustomFps) v.push_back(Item::CustomFps);
-  v.insert(v.end(), {Item::Fullscreen, Item::SharpUi, Item::ReampedLogo, Item::Tearing, Item::SkipIntro, Item::SinglePass, Item::AA, Item::Scaling, Item::Music, Item::UiSize, Item::Recommended, Item::Save, Item::Controls, Item::Ride});
-  if (!a.deck) v.erase(std::find(v.begin(), v.end(), Item::Recommended));
+  v.insert(v.end(), {Item::Fullscreen, Item::SharpUi, Item::ReampedLogo, Item::Tearing, Item::SkipIntro, Item::SinglePass, Item::AA, Item::Scaling, Item::Music, Item::UiSize, Item::Save, Item::Controls, Item::Ride});
   return v;
 }
 
 void MoveFocus(App& a, int delta) {
-  if (a.status == "Settings saved" || a.status == "Steam Deck recommended settings") a.status.clear();
+  if (a.status == "Settings saved") a.status.clear();
   Item cur = a.focus == Item::Quit ? Item::Ride : a.focus;
   std::vector<Item> v = NavOrder(a);
   auto it = std::find(v.begin(), v.end(), cur);
@@ -806,9 +801,8 @@ void Change(App& a, int delta, bool wrap) {
     case Item::Music: Step(MusicValues(), a.st.music, delta, wrap); break;
     case Item::UiSize: a.st.ui_size = std::clamp(a.st.ui_size + 10 * delta, 50, UiSizeMax(nullptr, a.deck)); break;
     // The bottom buttons, left to right.
-    case Item::Recommended: case Item::Save: case Item::Controls: case Item::Quit: case Item::Ride: {
-      std::vector<Item> row = {Item::Save, Item::Controls, Item::Quit, Item::Ride};
-      if (a.deck) row.insert(row.begin(), Item::Recommended);
+    case Item::Save: case Item::Controls: case Item::Quit: case Item::Ride: {
+      const std::vector<Item> row = {Item::Save, Item::Controls, Item::Quit, Item::Ride};
       const auto it = std::find(row.begin(), row.end(), a.focus);
       if (it == row.end()) break;
       const int i = std::clamp(int(it - row.begin()) + (delta > 0 ? 1 : -1), 0, int(row.size()) - 1);
@@ -835,11 +829,6 @@ void Activate(App& a) {
     case Item::Controls: a.controls = true; a.ctl_sel = 0; break;
     case Item::UiSize: a.sizes = true; a.size_sel = 0; break;
     case Item::Resolution: OpenResolutionList(a); break;
-    case Item::Recommended:
-      ApplyDeckRecommended(a.st);
-      a.status = "Steam Deck recommended settings";
-      a.status_error = false;
-      break;
     case Item::Save:
       SaveSettingsAndSay(a);
       break;
@@ -1587,8 +1576,7 @@ void DrawMain(App& a) {
   // Bottom bar: status, Quit (saves), RIDE.
   {
     float y = 650;
-    // (Tighter on the Steam Deck: its row also holds Recommended.)
-    const float pad = a.deck ? 22.0f : 32.0f, gap = a.deck ? 7.0f : 10.0f;
+    const float pad = 32.0f, gap = 10.0f;
     float ride_w = TextW(a, a.display, 20.0f, "RIDE") + 52;
     float quit_w = TextW(a, a.body, 13.0f, "Quit") + pad;
     Rect ride = R(a, a.Rr - ride_w, y, a.Rr, y + 40);
@@ -1608,25 +1596,6 @@ void DrawMain(App& a) {
     if (Clicked(a, save)) {
       a.focus = Item::Save;
       SaveSettingsAndSay(a);
-    }
-    // The Steam Deck: its recommended settings in one press.
-    float rec_w = 0;
-    if (a.deck) {
-      rec_w = TextW(a, a.body, 13.0f, "Recommended") + pad;
-      const float rec_x1 = save_x1 - save_w - gap;
-      Rect rec = R(a, rec_x1 - rec_w, y, rec_x1, y + 40);
-      Track(a, Item::Recommended, rec);
-      Box(rec, kPlain, Hover(a, rec) ? kCyan : kBorder, 6, a.s);
-      BoldText(a, 13.0f, rec_x1 - rec_w + pad / 2, y + 12, kPillText, "Recommended");
-      if (a.focus == Item::Recommended) Ring(rec, a.s);
-      if (Hover(a, rec)) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-      if (Clicked(a, rec)) {
-        a.focus = Item::Recommended;
-        ApplyDeckRecommended(a.st);
-        a.status = "Steam Deck recommended settings";
-        a.status_error = false;
-      }
-      rec_w += gap;
     }
     Track(a, Item::Ride, ride);
     Track(a, Item::Quit, quit);
@@ -1681,7 +1650,7 @@ void DrawMain(App& a) {
     }
     // Beside the buttons when there's room, else on its own line under them
     // (the Steam Deck's row is full: a narrow column wrapped it a word a line).
-    const float beside = a.Rr - ride_w - 4 * gap - quit_w - ctl_w - save_w - rec_w - a.L - 2;
+    const float beside = a.Rr - ride_w - 4 * gap - quit_w - ctl_w - save_w - a.L - 2;
     if (beside >= 140) {
       Text(a, a.body, 12.0f, a.L + 2, y + (status.size() > 34 ? 4 : 12), error ? kError : kCyan, status, beside);
     } else if (!status.empty()) {
@@ -2123,7 +2092,7 @@ int RunLauncher() {
   std::string ini;
   a.settings_exist = sys::ReadFile(a.dist_dir + "settings.ini", ini);
   a.st = ParseSettings(a.settings_exist ? &ini : nullptr, a.deck);
-  // First start on a Steam Deck: the measured Recommended settings.
+  // First start on a Steam Deck: the settings measured to run best there.
   if (!a.settings_exist && a.deck) ApplyDeckRecommended(a.st);
   a.res_choices = ResolutionChoices(sys::DisplayModes(), a.st.resolution);
   if (!FolderValid(a)) {

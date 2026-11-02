@@ -180,7 +180,7 @@ std::string PathFlag(const std::string& name, const std::string& path);
 std::string QuoteArg(const std::string& arg);
 
 // Focus targets on the main screen.
-enum class Item { GameFolder, Resolution, FrameRate, CustomFps, Fullscreen, SharpUi, ReampedLogo, Tearing, SkipIntro, SinglePass, AA, Scaling, Music, UiSize, Controls, Recommended, Save, Quit, Ride };
+enum class Item { GameFolder, Resolution, FrameRate, CustomFps, Fullscreen, SharpUi, ReampedLogo, Tearing, SkipIntro, SinglePass, AA, Scaling, Music, UiSize, Controls, Save, Quit, Ride };
 // Later runs (settings.ini exists, valid folder): RIDE. First run: the first
 // setting. No valid folder: the game folder.
 Item InitialFocus(bool settings_exist, bool folder_valid);
