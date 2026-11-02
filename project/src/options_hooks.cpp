@@ -102,19 +102,34 @@ std::vector<uint32_t> FindGuestIn(uint8_t* base, const std::string& pattern, uin
 std::atomic<uint32_t> g_whole_memory_searches{0};
 char g_last_scene[64] = "";
 
-// The last text found: the texts of a page sit together in its string table,
-// so the next one is looked for near it first.
-std::atomic<uint32_t> g_last_found{0};
+// Every copy of the last text found far off: the texts of a page sit together in its
+// string table, so the next one is looked for near those first (the anchors'
+// 16 MB windows took ~30 ms a text: 264 ms to open the Options page).
+std::mutex g_last_found_mutex;
+std::vector<uint32_t> g_last_found;
+void SetLastFound(const std::vector<uint32_t>& found) {
+  if (found.empty()) return;
+  std::lock_guard lock(g_last_found_mutex);
+  g_last_found = found;
+}
 
 std::vector<uint32_t> FindGuest(uint8_t* base, const std::string& pattern) {
   // Every copy near the last text found and near the anchors (the string
   // table can be in memory more than once: writing only the first copy found
   // may miss the one the scene draws).
-  std::vector<uint32_t> out;
-  if (const uint32_t last = g_last_found.load(std::memory_order_relaxed)) {
-    constexpr uint64_t kNear = 256 << 10;
-    out = FindGuestIn(base, pattern, last > kNear ? last - kNear : 0, uint64_t(last) + kNear);
+  std::vector<uint32_t> out, last_found;
+  {
+    std::lock_guard lock(g_last_found_mutex);
+    last_found = g_last_found;
   }
+  constexpr uint64_t kNear = 256 << 10;
+  for (uint32_t last : last_found) {
+    for (uint32_t a : FindGuestIn(base, pattern, last > kNear ? last - kNear : 0, uint64_t(last) + kNear)) {
+      if (std::find(out.begin(), out.end(), a) == out.end()) out.push_back(a);
+    }
+  }
+  // (Kept as it was: the next text may have a copy near another of them.)
+  if (!out.empty()) return out;
   std::vector<uint32_t> anchors;
   {
     std::lock_guard lock(g_anchor_mutex);
@@ -127,17 +142,29 @@ std::vector<uint32_t> FindGuest(uint8_t* base, const std::string& pattern) {
       if (std::find(out.begin(), out.end(), a) == out.end()) out.push_back(a);
     }
   }
-  if (!out.empty()) {
-    g_last_found = out.front();
-    return out;
-  }
-  out = FindGuestAll(base, pattern);
-  if (!out.empty()) g_last_found = out.front();
-  g_whole_memory_searches.fetch_add(1, std::memory_order_relaxed);
-  if (REXCVAR_GET(scene_log)) REXLOG_INFO("Amped3: text search: whole memory ({} found)", out.size());
-  for (uint32_t a : out) AddAnchor(a);
+  SetLastFound(out);
   return out;
 }
+
+// Not found near: all memory, on a thread of its own (about 1.5 s on a fast
+// PC, which froze the game when a page opened), then `done` with what it
+// found (on that thread).
+void FindGuestAllInBackground(uint8_t* base, std::vector<std::string> patterns,
+                              std::function<void(std::vector<uint32_t>)> done) {
+  g_whole_memory_searches.fetch_add(1, std::memory_order_relaxed);
+  std::thread([base, patterns = std::move(patterns), done = std::move(done)] {
+    std::vector<uint32_t> out;
+    for (const std::string& pattern : patterns) {
+      if (out.empty()) out = FindGuestAll(base, pattern);
+    }
+    if (REXCVAR_GET(scene_log)) REXLOG_INFO("Amped3: text search: whole memory, in the background ({} found)", out.size());
+    SetLastFound(out);
+    done(std::move(out));
+  }).detach();
+}
+
+// Our texts are written from the game's thread and from those searches.
+std::recursive_mutex g_text_mutex;
 
 std::vector<uint32_t> FindGuestAll(uint8_t* base, const std::string& pattern) {
   std::vector<uint32_t> out;
@@ -172,16 +199,29 @@ class GuestText {
   void Set(uint8_t* base, std::string text, bool search = true) {
     if (centre_ && text.size() < initial_.size()) text.insert(0, (initial_.size() - text.size()) / 2, ' ');
     text.resize(initial_.size(), ' ');
-    const std::string last = Utf16Be(last_);
+    std::lock_guard lock(g_text_mutex);
+    wanted_ = text;
     if (!Valid(base)) {
       addresses_.clear();
+      const std::string last = Utf16Be(last_);
       if (search) addresses_ = FindGuest(base, Utf16Be(initial_));
       if (search && addresses_.empty() && last_ != initial_) addresses_ = FindGuest(base, last);
+      if (search && addresses_.empty() && !searching_) {
+        // Written when found (the scene draws the text as it is then).
+        searching_ = true;
+        std::vector<std::string> patterns{Utf16Be(initial_)};
+        if (last_ != initial_) patterns.push_back(last);
+        FindGuestAllInBackground(base, std::move(patterns), [this, base](std::vector<uint32_t> found) {
+          std::lock_guard lock(g_text_mutex);
+          searching_ = false;
+          for (uint32_t a : found) AddAnchor(a);
+          if (found.empty() || Valid(base)) return;
+          addresses_ = std::move(found);
+          Write(base);
+        });
+      }
     }
-    const std::string bytes = Utf16Be(text);
-    if (REXCVAR_GET(scene_log)) REXLOG_INFO("Amped3: text '{}' at {} place(s)", text, addresses_.size());
-    for (uint32_t a : addresses_) std::memcpy(base + a, bytes.data(), bytes.size());
-    if (!addresses_.empty()) last_ = text;
+    Write(base);
   }
   bool Valid(uint8_t* base) const {
     const std::string last = Utf16Be(last_);
@@ -196,8 +236,16 @@ class GuestText {
   }
 
  private:
-  std::string initial_, last_;
+  void Write(uint8_t* base) {
+    const std::string bytes = Utf16Be(wanted_);
+    if (REXCVAR_GET(scene_log)) REXLOG_INFO("Amped3: text '{}' at {} place(s)", wanted_, addresses_.size());
+    for (uint32_t a : addresses_) std::memcpy(base + a, bytes.data(), bytes.size());
+    if (!addresses_.empty()) last_ = wanted_;
+  }
+
+  std::string initial_, last_, wanted_;
   bool centre_;
+  bool searching_ = false;
   std::vector<uint32_t> addresses_;
 };
 
@@ -247,7 +295,16 @@ std::vector<GuestText> g_achievement_rows = MakeRows('a', 15);
 // Rows that moved, found with one search for "#<kind>" (near the anchors, or
 // in all memory once) instead of one each: opening the Achievements page
 // searched 15 times, and all memory for each row not loaded.
+// The row number of the "#aNN#" at `a` (2 bytes a character), or -1.
+int RowAt(const uint8_t* base, uint32_t a) {
+  const uint8_t* p = base + a + 4;
+  if (p[0] || p[2] || p[4] || p[1] < '0' || p[1] > '9' || p[3] < '0' || p[3] > '9' || p[5] != '#') return -1;
+  return (p[1] - '0') * 10 + (p[3] - '0') - 1;
+}
+void RefreshRows(uint8_t* base, char kind);
+
 void FindRows(uint8_t* base, char kind, std::vector<GuestText>& rows) {
+  std::lock_guard lock(g_text_mutex);
   bool all_valid = true;
   for (const GuestText& row : rows) all_valid = all_valid && row.Valid(base);
   if (all_valid) return;
@@ -267,19 +324,26 @@ void FindRows(uint8_t* base, char kind, std::vector<GuestText>& rows) {
       }
     }
   }
-  auto row_at = [&](uint32_t a) -> int {  // "#aNN#": 2 bytes a character
-    const uint8_t* p = base + a + 4;
-    if (p[0] || p[2] || p[4] || p[1] < '0' || p[1] > '9' || p[3] < '0' || p[3] > '9' || p[5] != '#') return -1;
-    return (p[1] - '0') * 10 + (p[3] - '0') - 1;
-  };
+  auto row_at = [base](uint32_t a) { return RowAt(base, a); };
   bool any = false;
   for (uint32_t a : hits) any = any || row_at(a) >= 0;
   if (!any) {
-    hits = FindGuestAll(base, prefix);
-    g_whole_memory_searches.fetch_add(1, std::memory_order_relaxed);
-    for (uint32_t a : hits) {
-      if (row_at(a) >= 0) AddAnchor(a);
+    // All memory in the background, then the page's rows again (found near
+    // the new anchor then).
+    static std::atomic<bool> searching[2];
+    std::atomic<bool>& busy = searching[kind == 'b'];
+    if (!busy.exchange(true)) {
+      FindGuestAllInBackground(base, {prefix}, [base, kind, &busy](std::vector<uint32_t> found) {
+        bool rows_found = false;
+        for (uint32_t a : found) {
+          if (RowAt(base, a) >= 0) AddAnchor(a), rows_found = true;
+        }
+        std::lock_guard lock(g_text_mutex);
+        busy = false;
+        if (rows_found) RefreshRows(base, kind);
+      });
     }
+    return;
   }
   std::vector<std::vector<uint32_t>> found(rows.size());
   for (uint32_t a : hits) {
@@ -346,6 +410,11 @@ void RefreshAchievements(uint8_t* base) {
     }
     g_achievement_rows[i].Set(base, text, false);
   }
+}
+
+void RefreshRows(uint8_t* base, char kind) {
+  if (kind == 'a') RefreshAchievements(base);
+  else RefreshBackups(base);
 }
 
 // "ReAmped3_<setting>_next" / "_prev", or "ReAmped3_more" (the scene's rows;
@@ -527,7 +596,7 @@ void Amped3_PrewarmUiTexts(uint8_t* base) {
   std::thread([base] {
     const auto found = FindGuestAll(base, Utf16Be("Source: Game soundtrack "));
     for (uint32_t a : found) AddAnchor(a);
-    if (!found.empty()) g_last_found = found.front();
+    SetLastFound(found);
   }).detach();
 }
 
