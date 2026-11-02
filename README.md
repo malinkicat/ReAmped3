@@ -1,6 +1,14 @@
 # ReAmped 3
 
-Amped 3 (Xbox 360, 2005) running natively on Windows and the Steam Deck.
+Amped 3 (Xbox 360, 2005) running natively on Windows 11 and the Steam Deck.
+
+**Built for performance.** The goal is high, steady frame rates on PC and a locked 60 on the Steam Deck, with the game looking and playing as it did:
+
+- **159 FPS** in the busiest view in the game on an RTX 2080 Ti / Ryzen 9 3900X PC (frame rate unlocked).
+- **A locked 60 FPS** on the Steam Deck in that same view, at its full 1280x800 screen (1% low 59).
+- Any frame rate cap, from the original 30 to unlocked, with gameplay at the right speed and even frame pacing.
+
+See [Performance](#performance) for the numbers and how we got there.
 
 It's a static recompilation: the game's PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built as a normal program, on our modified ReXGlue runtime (Direct3D 12). It's not an emulator and no game files are included. You need your own copy of the game.
 
@@ -68,6 +76,13 @@ The busiest views are limited by the CPU (the game's main thread and the GPU emu
 
 Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap in that spot. Ordinary riding averages about 90 at the 90 FPS setting.
 
+**How we got there**
+
+- **Single-pass rendering.** The Xbox 360 drew each frame in three strips to fit its 10 MB of video memory, so the scene was drawn three times. A PC has no such limit, so we draw it once: more than double the frame rate in busy scenes.
+- **A faster GPU emulation.** The emulated GPU's command processor was reworked to cut its per-draw cost (render targets, resolves, register and constant handling, texture lookups), and the game's hottest maths runs as native x64 code with bit-identical results.
+- **Direct3D 12 over Vulkan.** We tried ReXGlue's Vulkan backend on the Steam Deck: it reached 54 FPS in the busiest view, where our Direct3D 12 path (run through Proton's translation to Vulkan) now holds a locked 60. Direct3D 12 is what ships, on Windows and the Deck alike.
+- **Measured, not guessed.** Every change was checked on a repeatable benchmark at that view on the PC and the Deck, and soak-tested for stability.
+
 ## Changes to other projects
 
 **ReXGlue runtime** (our fork of [rexglue-sdk](https://github.com/rexglue/rexglue-sdk), BSD-3, published separately):
@@ -93,7 +108,7 @@ Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap 
 
 ## What you need
 
-- Windows 10/11 x64 with an AVX2 CPU and a Direct3D 12 GPU, or a Steam Deck / Linux PC with Steam's Proton 10 (add the package's `run.sh` to Steam as a non-Steam game; its README.txt has the steps).
+- Windows 11 x64 with an AVX2 CPU and a Direct3D 12 GPU, or a Steam Deck / Linux PC with Steam's Proton 10 (add the package's `run.sh` to Steam as a non-Steam game; its README.txt has the steps).
 - Your own Amped 3 disc, extracted (the folder with `default.xex`).
 
 ## Building
