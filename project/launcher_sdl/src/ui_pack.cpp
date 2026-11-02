@@ -231,6 +231,10 @@ std::vector<std::string> StampLines(const std::string& game_dir) {
 // the original, only sharp.
 enum Kind { kArt, kPhoto, kScreen, kIcon, kPixel, kKinds };
 Kind KindOf(const std::string& name, bool screens) {
+  // The loading screens' dancer and its "loading" label are cut-outs drawn
+  // over the card: art with transparency (PNG), not opaque pictures (JPEG
+  // turned their clear parts black, the label's box over the dancer).
+  if (screens && (name.rfind("loading_dancer", 0) == 0 || name.rfind("load_poop", 0) == 0)) return kArt;
   if (screens) return kScreen;
   if (name == "XMRadio_supernatural_18") return kPixel;
   if (name == "Xbox360buttons" || name == "ArrowDPad") return kIcon;
