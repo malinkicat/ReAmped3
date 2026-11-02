@@ -14,7 +14,7 @@ It's a static recompilation: the game's PowerPC code is translated to x64 C++ wi
 
 Heads up: we used AI as part of this project, to help write and review code, dig through the game, and run the testing and benchmarks. Everything here was tested on a real PC and a Steam Deck.
 
-Status: playable from start through the story, menus, rider creation, the open mountain and events. No known crashes (45 minute soak on PC and 25 minutes on the Deck, both clean).
+Status: playable from start through the story, menus, rider creation, the open mountain and events. We've put hours of real play into it on PC and the Steam Deck, plus long automated soak runs on both, and there are no known crashes.
 
 ## Installing
 
