@@ -124,6 +124,7 @@ struct App {
   bool deck = false;
   bool wine = false;
   std::string dist_dir;
+  std::string version;  // version.txt from the package (build date and commit)
   bool settings_exist = false;
   Settings st;
   std::vector<int> fps_choices;
@@ -1233,6 +1234,11 @@ void DrawHints(App& a, float y) {
     x = Hint(a, x, y, "Enter", "Select", false);
     if (!a.deck) Hint(a, x, y, "Ctrl +/-", "Size", false);
   }
+  // Which build this is, for bug reports.
+  if (!a.version.empty() && !a.picker) {
+    const float right = a.two_columns ? kDeckDesignW - kLeft : a.Rr;  // the page's right edge
+    Text(a, a.body, 10.5f, right - TextW(a, a.body, 10.5f, a.version), y + 1.0f, kMuted, a.version);
+  }
 }
 
 // A focusable item: mouse hover moves the focus to it.
@@ -2019,6 +2025,10 @@ int RunLauncher() {
   if (!deck_env.empty()) a.deck = true;
   a.fps_choices = FpsChoices(a.deck);
 
+  if (sys::ReadFile(a.dist_dir + "version.txt", a.version)) {
+    while (!a.version.empty() && (a.version.back() == '\n' || a.version.back() == '\r' || a.version.back() == ' '))
+      a.version.pop_back();
+  }
   std::string ini;
   a.settings_exist = sys::ReadFile(a.dist_dir + "settings.ini", ini);
   a.st = ParseSettings(a.settings_exist ? &ini : nullptr, a.deck);

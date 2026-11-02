@@ -39,6 +39,10 @@ Copy-Item (Join-Path $PSScriptRoot "..\THIRD_PARTY_NOTICES.md") $dir
 Copy-Item -Recurse (Join-Path $PSScriptRoot "..\project\assets\fonts") (Join-Path $dir "fonts")
 # The ReAmped 3 logo for the launcher header (generated with FLUX.1 schnell, tools/art/logo_gen.py + logo_cut.py).
 Copy-Item (Join-Path $PSScriptRoot "..\project\assets\logo\logo.bmp") $dir
+# The build shown in the launcher's corner (date and commit; "+" = uncommitted changes).
+$commit = (git -C (Join-Path $PSScriptRoot "..") rev-parse --short HEAD 2>$null)
+if ($commit -and (git -C (Join-Path $PSScriptRoot "..") status --porcelain 2>$null)) { $commit += "+" }
+"build $(Get-Date -Format yyyy-MM-dd) $commit".Trim() | Set-Content -Encoding ascii (Join-Path $dir "version.txt")
 # Steam Deck / Linux: starts the launcher under Steam's Proton (LF line endings kept).
 Copy-Item (Join-Path $PSScriptRoot "linux\run.sh") $dir
 # The upscaler the launcher runs to make the sharp UI pack on the player's PC
