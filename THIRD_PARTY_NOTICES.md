@@ -4,7 +4,7 @@ ReAmped 3 builds on other open source work. What was used, and from where:
 
 | Project | Used for | License |
 |---|---|---|
-| [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) | Recompiler and runtime (built from a modified copy; the release ships its DLLs) | BSD 3-Clause |
+| [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) | Recompiler and runtime (built from our modified copy, source at [malinkicat/rexglue-sdk `amped3-gpu`](https://github.com/malinkicat/rexglue-sdk/tree/amped3-gpu); the release ships its DLLs) | BSD 3-Clause |
 | [Xenia](https://github.com/xenia-project/xenia) / [Xenia Canary](https://github.com/xenia-canary/xenia-canary) | ReXGlue's runtime is derived from Xenia. The UI corruption fix is a port of [Xenia Canary PR #1129](https://github.com/xenia-canary/xenia-canary/pull/1129); the type-0 register write path follows Xenia Canary | BSD 3-Clause |
 | [iExplosiveRage/rexglue-sdk](https://github.com/iExplosiveRage/rexglue-sdk) | Render target, clear and resolve work (commits 5281f5d and 6aaf31a), and the texture dump/replace system (burstlimit branch, commits 0a437ff to 92eed19: the sharp UI pack's loading), ported into our runtime and extended | BSD 3-Clause (ReXGlue) |
 | [Project8Recomp](https://github.com/theokyr/Project8Recomp) | Steam Deck performance ideas from its ReXGlue patches: bulk writes of side-effect-free GPU registers and the blocking timer-queue wait (with its fix to disruptorplus's blocking wait), adapted in our runtime | BSD 3-Clause |

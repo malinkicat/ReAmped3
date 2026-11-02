@@ -96,7 +96,7 @@ Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap 
 
 ## Changes to other projects
 
-**ReXGlue runtime** (our fork of [rexglue-sdk](https://github.com/rexglue/rexglue-sdk), BSD-3, published separately):
+**ReXGlue runtime**: our fork of [rexglue-sdk](https://github.com/rexglue/rexglue-sdk) (BSD-3), source at [malinkicat/rexglue-sdk, branch `amped3-gpu`](https://github.com/malinkicat/rexglue-sdk/tree/amped3-gpu) (its `REAMPED3.md` lists the changes):
 - GPU: single-pass "tile collapse", MSAA/D24FS8/strip resolves for this game, a two-thread command processor, cheaper register/constant/texture handling, hot-page tracking, pipeline reuse.
 - Image: SMAA, AMD FSR/CAS sharpening, ultrawide/16:10 squeeze, UI scale. NVIDIA DLAA and FSR 3 frame generation are in the code but switched off until the game has per-object motion vectors.
 - Texture replacement: hashed lookups, background loading, alpha fixes (what Sharp UI uses).
@@ -124,7 +124,7 @@ Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap 
 
 ## Building
 
-Developer build only for now. Needs Visual Studio 2022 Build Tools (C++, Windows SDK, CMake, Ninja), LLVM/Clang, the ReXGlue SDK v0.10.0 in `.tools/sdk`, and our runtime fork.
+Developer build only for now. Needs Visual Studio 2022 Build Tools (C++, Windows SDK, CMake, Ninja), LLVM/Clang, the ReXGlue SDK v0.10.0 in `.tools/sdk`, and our runtime fork ([malinkicat/rexglue-sdk](https://github.com/malinkicat/rexglue-sdk/tree/amped3-gpu), branch `amped3-gpu`; set `SDK_SRC` in `tools\local.cmd` to where you clone it).
 
 1. Copy `tools\local.cmd.example` to `tools\local.cmd` and set your game folder, LLVM and runtime source paths.
 2. Copy `default.xex` from your game folder to `private_work\`.
