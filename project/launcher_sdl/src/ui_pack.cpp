@@ -808,12 +808,23 @@ bool Build(const Options& o, Progress& progress, const std::atomic<bool>& cancel
     sys::RemoveTree(fresh);
     return false;
   }
+  // Swapped in: the old pack moved aside first and back if the new one can't
+  // take its place (never left without one), then removed.
   const std::string current = JoinPath(o.textures_dir, "replace");
-  sys::RemoveTree(current);
+  const std::string old = JoinPath(o.textures_dir, "replace.old");
+  sys::RemoveTree(old);
+  const bool had_current = sys::DirExists(current);
+  if (had_current && !sys::RenameDir(current, old)) {
+    error = "can't move the old pack aside (" + current + " in use?)";
+    sys::RemoveTree(fresh);
+    return false;
+  }
   if (!sys::RenameDir(fresh, current)) {
+    if (had_current) sys::RenameDir(old, current);
     error = "can't rename " + fresh;
     return false;
   }
+  sys::RemoveTree(old);
   sys::WriteFile(JoinPath(o.textures_dir, "pack.txt"), StampText(o.scale, StampLines(o.game_dir)));
   // work\ only carries a cancelled build on (~1 GB of 4x images): a new pack
   // comes from other game files or another scale, which start over anyway.
