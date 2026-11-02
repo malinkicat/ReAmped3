@@ -825,10 +825,24 @@ bool Build(const Options& o, Progress& progress, const std::atomic<bool>& cancel
     return false;
   }
   sys::RemoveTree(old);
-  sys::WriteFile(JoinPath(o.textures_dir, "pack.txt"), StampText(o.scale, StampLines(o.game_dir)));
-  // work\ only carries a cancelled build on (~1 GB of 4x images): a new pack
-  // comes from other game files or another scale, which start over anyway.
-  sys::RemoveTree(work);
+  // Some textures missing (under 10%): installed as it is, but marked
+  // "partial" so the next start isn't up to date and carries on from work\
+  // (only the missing ones are made again), at most twice.
+  std::string previous_stamp;
+  int tries = 0;
+  if (sys::ReadFile(JoinPath(o.textures_dir, "pack.txt"), previous_stamp)) {
+    if (const size_t at = previous_stamp.find("\npartial "); at != std::string::npos) {
+      tries = std::atoi(previous_stamp.c_str() + at + 9);
+    }
+  }
+  const bool retry = copied < int(entries.size()) && tries < 2;
+  std::string stamp_text = StampText(o.scale, StampLines(o.game_dir));
+  if (retry) stamp_text += "partial " + std::to_string(tries + 1) + " (" + std::to_string(copied) + " of " +
+                           std::to_string(entries.size()) + ")\n";
+  sys::WriteFile(JoinPath(o.textures_dir, "pack.txt"), stamp_text);
+  // work\ only carries a cancelled or partial build on (~1 GB of 4x images):
+  // a new pack comes from other game files or another scale, which start over.
+  if (!retry) sys::RemoveTree(work);
   progress.done = progress.total.load();
   return true;
 }
