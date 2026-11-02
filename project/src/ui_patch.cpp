@@ -84,7 +84,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Bytes = std::vector<uint8_t>;
-constexpr int kVersion = 30;  // bump when the patches change (30: title and trail map unscaled)
+constexpr int kVersion = 31;  // bump when the patches change (31: radio slide scaled)
 
 uint32_t Be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 uint16_t Le16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
@@ -1297,6 +1297,26 @@ bool Build(const fs::path& game, const fs::path& out) {
   }
   // UI sizes: the game's scenes, and our pages (menus, made from its options page).
   AddSizePatches(*game_rui, game_patches);
+  // The radio popup hides by sliding XMRADIOGROUP 225 units (translateX, in
+  // the scaled anchor's units): shrunk, that slide fell short and left a
+  // sliver on screen. Its distance is divided by the scale so it still
+  // clears the edge (only if the one 225.0 keyframe is found).
+  if (const double radio = REXCVAR_GET(ui_size) / 100.0 * ClassSize(UiClass::kMusic) / 100.0;
+      std::abs(radio - 1.0) > 1e-4) {
+    game_patches["Scenes/XMRadio.anims"] = [radio](Bytes& d) {
+      constexpr uint8_t k225[] = {0x43, 0x61, 0x00, 0x00};  // 225.0f, big-endian
+      auto at = std::search(d.begin(), d.end(), std::begin(k225), std::end(k225));
+      if (at == d.end() || std::search(at + 1, d.end(), std::begin(k225), std::end(k225)) != d.end()) {
+        REXLOG_WARN("Amped3: UI sizes: the radio popup's slide wasn't found; it may not hide fully");
+        return true;
+      }
+      const float v = float(225.0 / radio);
+      uint32_t bits;
+      std::memcpy(&bits, &v, 4);
+      for (int b = 0; b < 4; ++b) at[b] = uint8_t(bits >> (24 - 8 * b));
+      return true;
+    };
+  }
   if (const double menus = REXCVAR_GET(ui_size) / 100.0 * REXCVAR_GET(ui_size_menus) / 100.0,
       legends = REXCVAR_GET(ui_size_legends) / 100.0;
       std::abs(menus - 1.0) > 1e-4 || std::abs(legends - 1.0) > 1e-4) {
