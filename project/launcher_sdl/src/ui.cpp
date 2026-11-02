@@ -708,11 +708,11 @@ void Launch(App& a) {
     return;
   }
   // The launcher's own arguments go to the game, except its --offer-vendor ID,
-  // --open-controls/--open-keys and --focus.
+  // --ride_after N, --open-controls/--open-keys and --focus.
   std::vector<std::string> extra;
   const std::vector<std::string> launcher_args = sys::LauncherArgs();
   for (size_t i = 0; i < launcher_args.size(); ++i) {
-    if (launcher_args[i] == "--offer-vendor") ++i;
+    if (launcher_args[i] == "--offer-vendor" || launcher_args[i] == "--ride_after") ++i;
     else if (launcher_args[i] != "--open-controls" && launcher_args[i] != "--open-keys" &&
              launcher_args[i] != "--open-resolutions" && launcher_args[i] != "--open-sizes" &&
              launcher_args[i] != "--ride" && launcher_args[i].rfind("--focus=", 0) != 0) {
@@ -735,6 +735,10 @@ void Launch(App& a) {
     }
   }
   std::string args = BuildGameArgs(a.st, a.dist_dir, a.screen, extra);
+  // V-Sync ticked at 60 FPS and below too (above 60 BuildGameArgs says so): no
+  // tearing. Windows only for now - under Proton it changes how vkd3d presents
+  // (to be measured on the Deck first).
+  if (!a.wine && !a.st.allow_tearing) args += " --d3d12_allow_variable_refresh_rate_and_tearing=false";
   std::string error;
   if (!sys::StartProcess(exe, BuildCommandLine(exe, args), a.dist_dir, a.game, error)) {
     a.status = "Could not start the game: " + error;
