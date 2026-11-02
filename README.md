@@ -24,16 +24,17 @@ If you'd rather build it yourself from source, see [Building from source](#build
 ## What we added
 
 Launcher
-- Checks your game folder and tells you if it's the tested USA version.
+- Checks your game folder: tells you if it's the tested USA version, and if a half-extracted disc is missing files.
 - Resolution from your display's own list, or "Match the display".
 - Frame rate on PC: 30 (the original), 60, 90, 100, 120, 144, Auto (matches your display's refresh rate), your own cap anywhere from 30 to 1000, or unlocked. On the Steam Deck: 30, 40, 60, 90, your own cap or unlocked.
 - Anti-aliasing (SMAA, FXAA or none) and sharpening.
 - Fast single-pass rendering, on by default (see Performance). Turn it off and you get the game's own 2x MSAA back instead.
-- Sharp UI: the game's own menus, fonts and HUD art upscaled 4x on your PC (2x on the Deck) with Real-ESRGAN. It's an offline image upscaler, runs once (about 5 minutes) and keeps the result. Nothing gets downloaded or uploaded and we don't ship any game art.
+- Sharp UI: the game's own menus, fonts and HUD art upscaled 4x on your PC (2x on the Deck) with Real-ESRGAN. It's an offline image upscaler, runs once (about 5 minutes, and you can ride while it works) and keeps the result. Nothing gets downloaded or uploaded and we don't ship any game art.
 - UI size: shrink everything, or each part on its own (menus, HUD, help tips, radio popup, button legends). On the Deck the HUD and tips can go up to 150%.
 - Controls: remap the pad and keyboard, and each row tells you what it does in the game.
 - Music, the ReAmped logo option, and Recommended settings for the Steam Deck.
 - Works with a controller, including on the Deck.
+- If the game can't start, the launcher stays open and says why (for example a CPU without AVX2) instead of just closing.
 
 In the game
 - Ultrawide and 16:10: you see more of the mountain, nothing is stretched, and the HUD and menus stay 16:9.
