@@ -144,7 +144,7 @@ if (-not $Release) {
     "seconds, then quit and send back amped3.log, settings.ini and the .csv files",
     "before the next run (each run replaces them).",
     "",
-    "1. Start-up: no 2K / Indie Built movies; one loading screen (Amped 3 logo,",
+    "1. Start-up: the 2K / Indie Built movies play (unless Skip intro movies is ticked), then one loading screen (Amped 3 logo,",
     "   LOADING..., the publisher's notice); then the title. With 'ReAmped logo'",
     "   ticked: the ReAmped 3 logo on both (RE part of the word, one outline).",
     "2. Launcher: every setting explained on the left when selected; Resolution",
