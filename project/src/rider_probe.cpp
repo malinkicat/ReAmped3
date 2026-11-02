@@ -176,6 +176,8 @@ bool SkipAiUpdate(uint32_t rider, PPCRegister& f1) {
 }
 }  // namespace
 
+void Amped3_SetRiderStep(double step);  // crash_contact.cpp
+
 // [[midasm_hook]] at 0x82220150, the per-rider update's entry. Returns true to
 // skip the update (--ai_physics_hz).
 bool Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
@@ -183,6 +185,7 @@ bool Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
   if (SkipAiUpdate(r3.u32, f1)) {
     return true;
   }
+  Amped3_SetRiderStep(f1.f64);  // crash_contact.cpp
   if (REXCVAR_GET(rider_timers)) {
     TrackTimers(r3.u32);
   }

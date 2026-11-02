@@ -23,6 +23,7 @@ set(AMPED3_SOURCES
     src/clock_probe.cpp
     src/step_probe.cpp
     src/rider_probe.cpp
+    src/crash_contact.cpp
     src/ai_rand_probe.cpp
     src/cpu_profile.cpp
     src/voice_probe.cpp
