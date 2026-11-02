@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -67,7 +68,7 @@ namespace {
 using winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
 using winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus;
 
-std::atomic<int32_t> g_skip{0};  // pending skip: 1 next, -1 previous
+std::atomic<int32_t> g_skip{0};  // pending skips: + next, - previous (one per press)
 // Taking turns with the player (mix mode, music folder empty): the game's
 // song plays now (the player paused by us); ended early by "next".
 std::atomic<bool> g_game_turn{false}, g_end_game_turn{false};
@@ -267,7 +268,7 @@ void RunFromFile() {
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
       continue;
     }
-    if (int32_t skip = g_skip.exchange(0)) command(skip > 0 ? "next" : "previous");
+    for (int32_t skip = g_skip.exchange(0); skip; skip -= skip > 0 ? 1 : -1) command(skip > 0 ? "next" : "previous");
     if (const int v = MusicVolume(); v != volume && v >= 0) {
       volume = v;
       command(("volume " + std::to_string(v)).c_str());
@@ -414,7 +415,7 @@ void Run() {
           volume = v;
           SetAppVolume(followed, v);
         }
-        if (int32_t skip = g_skip.exchange(0)) {
+        for (int32_t skip = g_skip.exchange(0); skip; skip -= skip > 0 ? 1 : -1) {
           if (skip > 0) chosen->TrySkipNextAsync().get();
           else chosen->TrySkipPreviousAsync().get();
         }
@@ -507,13 +508,14 @@ void EndGameTurn() {
 }
 
 void Skip(int32_t delta) {
-  // A held D-pad repeats the game's song change: one skip per press.
-  static auto last = std::chrono::steady_clock::time_point{};
-  const auto now = std::chrono::steady_clock::now();
-  if (now - last < std::chrono::milliseconds(700)) return;
-  last = now;
+  // The game calls its song change once per press (a held D-pad doesn't
+  // repeat, checked on the Deck), so quick presses all count: they add up
+  // until the player is told (at most 5 either way).
   REXLOG_INFO("Amped3: media session: {} track", delta < 0 ? "previous" : "next");
-  g_skip.store(delta < 0 ? -1 : 1);
+  int32_t pending = g_skip.load();
+  const int32_t step = delta < 0 ? -1 : 1;
+  while (std::abs(pending + step) <= 5 && !g_skip.compare_exchange_weak(pending, pending + step)) {
+  }
 }
 
 }  // namespace amped3::media_session
