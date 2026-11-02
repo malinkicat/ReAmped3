@@ -69,11 +69,12 @@ std::vector<fs::path> SaveFolders(const fs::path& root) {
   return out;
 }
 
-// A fingerprint of the saves: newest change time and total size.
-std::pair<int64_t, uintmax_t> Fingerprint() {
+// A fingerprint of the saves (or of a backup: copies keep the files' times):
+// newest change time and total size.
+std::pair<int64_t, uintmax_t> Fingerprint(const fs::path& root) {
   int64_t newest = 0;
   uintmax_t size = 0;
-  for (const fs::path& top : SaveFolders(UserRoot())) {
+  for (const fs::path& top : SaveFolders(root)) {
     std::error_code ec;
     fs::recursive_directory_iterator it(top, ec), end;
     for (; !ec && it != end; it.increment(ec)) {
@@ -168,8 +169,15 @@ void Run() {
     std::pair<int64_t, uintmax_t> last;
     {
       std::lock_guard lock(g_mutex);
-      last = Fingerprint();
-      if (last.second && Backups().empty()) Backup("first run");
+      last = Fingerprint(UserRoot());
+      // Also the saves made since the newest backup: the last session's
+      // final save (quitting right after it gives the loop below no time).
+      const auto backups = Backups();
+      if (last.second && backups.empty()) {
+        Backup("first run");
+      } else if (last.second && Fingerprint(backups.front()) != last) {
+        Backup("saved since the last backup");
+      }
     }
     bool pending = false;
     std::pair<int64_t, uintmax_t> pending_print{};
@@ -177,7 +185,7 @@ void Run() {
       std::this_thread::sleep_for(std::chrono::seconds(pending ? 10 : 60));
       if (!REXCVAR_GET(save_backups)) continue;
       std::lock_guard lock(g_mutex);
-      const auto now_print = Fingerprint();
+      const auto now_print = Fingerprint(UserRoot());
       if (now_print == last) {
         pending = false;
         continue;

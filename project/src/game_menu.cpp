@@ -356,6 +356,10 @@ class MenuDialog : public rex::ui::ImGuiDialog {
         i = std::clamp(i, 0, int(rates.size()) - 1);
         REXCVAR_SET(framerate, rates[i]);
         SaveSetting("framerate", std::to_string(rates[i]));
+        // Above 60 the guest's 60 Hz vblank mustn't hold the game back (as
+        // amped3_app.h sets at start): switched now, not from the next start.
+        // The swap chain's tearing stays as started.
+        rex::cvar::SetFlagByName("vsync", rates[i] == 0 || rates[i] > 60 ? "false" : "true");
         break;
       }
       case Row::kAA: {

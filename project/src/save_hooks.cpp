@@ -132,14 +132,15 @@ void QuickLoad(PPCContext& ctx, uint8_t* base) {
                                "LOADED", 3.0f);
 }
 
-void QuickSave(PPCContext& ctx, uint8_t* base) {
+// 1 saved, 0 failed, -1 skipped (not now).
+int QuickSave(PPCContext& ctx, uint8_t* base) {
   // Only with a rider loaded for a while (never mid-load: that could save
   // half-loaded data), not in a cinematic, and not under our prompts or a
   // system dialog.
   if (g_loaded_frames < 300 || Amped3_CinematicPlaying() || amped3::quit_prompt::IsOpen() ||
       amped3::game_menu::IsOpen() || rex::kernel::xam::xeXamIsUIActive()) {
     REXLOG_INFO("Amped3: quick save skipped (loading, a cinematic or a prompt)");
-    return;
+    return -1;
   }
   const auto started = std::chrono::steady_clock::now();
   PPCContext saved = ctx;
@@ -153,6 +154,7 @@ void QuickSave(PPCContext& ctx, uint8_t* base) {
   REXLOG_INFO("Amped3: quick save {} ({} ms)", ok ? "done" : "failed", ms.count());
   amped3::now_playing::ShowTip(ok ? "Game saved" : "Save failed", ok ? "Your progress is saved" : "Try again",
                                "SAVED", 3.0f);
+  return ok ? 1 : 0;
 }
 
 }  // namespace
@@ -163,18 +165,24 @@ std::atomic<int> g_save_and_resume{0};
 
 // The menu's Quit row: save (if a rider is loaded), then quit.
 std::atomic<bool> g_save_and_quit{false};
+// A quit whose save failed stays in the game; the next Quit leaves without
+// saving. Each quit's 5 s watchdog only acts if it is still the latest.
+std::atomic<bool> g_quit_without_save{false};
+std::atomic<int> g_quit_request{0};
 // quit_prompt.cpp's text: whether Quit saves first (QuickSave's conditions,
 // bar the prompt itself, which closes before the save).
 bool Amped3_WillSaveOnQuit() {
-  return REXCVAR_GET(quick_save) && g_loaded_frames >= 300 && !Amped3_CinematicPlaying() &&
+  return REXCVAR_GET(quick_save) && !g_quit_without_save && g_loaded_frames >= 300 && !Amped3_CinematicPlaying() &&
          !amped3::game_menu::IsOpen();
 }
 
 void Amped3_SaveAndQuit() {
   g_save_and_quit = true;
   // If the game's thread doesn't come round (stuck loading), quit anyway.
-  std::thread([] {
+  const int request = ++g_quit_request;
+  std::thread([request] {
     std::this_thread::sleep_for(std::chrono::seconds(5));
+    if (g_quit_request != request) return;  // the save failed: staying
     REXLOG_WARN("Amped3: quit: no save after 5 s, quitting");
     amped3::quit_prompt::QuitFromAnyThread();
   }).detach();
@@ -320,8 +328,17 @@ extern "C" REX_FUNC(sub_824A6D08) {
     ResumeGame(presses);
   }
   if (g_save_and_quit.exchange(false)) {
-    if (REXCVAR_GET(quick_save)) QuickSave(ctx, base);
-    amped3::quit_prompt::QuitFromAnyThread();
+    const int saved = REXCVAR_GET(quick_save) && !g_quit_without_save ? QuickSave(ctx, base) : -1;
+    if (saved == 0) {
+      // Not quitting, so nothing is lost; the next Quit leaves without saving.
+      ++g_quit_request;
+      g_quit_without_save = true;
+      REXLOG_WARN("Amped3: quit: the save failed, staying");
+      amped3::now_playing::ShowTip("Save failed", "Still here, nothing lost. Quit again to leave without saving.",
+                                   "NOT QUITTING", 6.0f);
+    } else {
+      amped3::quit_prompt::QuitFromAnyThread();
+    }
   }
   if (g_quick_load_phase != kNone) {
     const auto waited = std::chrono::steady_clock::now() - g_quick_load_since;
