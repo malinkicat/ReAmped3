@@ -26,10 +26,24 @@ QUICK_STOP_SCENE=TrailMap QUICK_NO_SPEED=1 QUICK_TIMEOUT=90 tools/quick_ride.sh 
 # The map can take a few seconds to accept input (later on a busy PC): hold
 # up until the camera has swung onto Loveseat (the picture changes a lot), at
 # most 3 tries; never press A elsewhere (it would open an event's card).
-sleep 3; tools/shot.sh stand_map0 >/dev/null 2>&1
+sleep 3
 moved=0
+# The map opens with the cursor resting on Big Back, whose card pops up after
+# 2-3 s (sooner at 8x) and blocks the D-pad: if it's showing (a dark panel on
+# the left), B closes it and up follows at once.
+card() {
+  python3 - "$1" <<'PY'
+import sys
+from PIL import Image, ImageStat
+im = Image.open(sys.argv[1]).convert('L').resize((1280, 720)).crop((100, 150, 300, 230))
+sys.exit(0 if ImageStat.Stat(im).mean[0] < 42 else 1)  # card ~33, map 52-72
+PY
+}
 for try in 1 2 3; do
-  tools/pad.sh "up 4000"; sleep 5.5; tools/shot.sh stand_map1 >/dev/null 2>&1
+  tools/shot.sh stand_map0 >/dev/null 2>&1
+  if card private_work/stand_map0.png; then tools/pad.sh b "wait 400" "up 4000"; else tools/pad.sh "up 4000"; fi
+  sleep 5.5; tools/shot.sh stand_map1 >/dev/null 2>&1
+  card private_work/stand_map1.png && continue  # a card again: try again
   python3 - private_work/stand_map0.png private_work/stand_map1.png <<'PY' && { moved=1; break; }
 import sys
 from PIL import Image, ImageChops, ImageStat
@@ -40,6 +54,7 @@ sys.exit(0 if diff > 15 else 1)  # moved ~40, stuck 0
 PY
 done
 [ $moved = 1 ] || { echo "$label: the map cursor never reached Loveseat (private_work/stand_map1.png); not measured"; exit 1; }
+[ -n "$STAND_ROUTE_ONLY" ] && { echo "$label: route ok (cursor on Loveseat), stopping before the drop"; exit 0; }
 # STAND_PROFILE=N: also a CPU profile of N s from 3 s after the drop (build/cpu_profile.csv, tools/cpu_profile.py).
 tools/pad.sh a "wait 3000" ${STAND_PROFILE:+"profile $STAND_PROFILE"} "stick 0 -1 $(( (secs + 20) * 1000 ))"; sleep 12
 # (private_work/stand_view.png: what was measured.)
