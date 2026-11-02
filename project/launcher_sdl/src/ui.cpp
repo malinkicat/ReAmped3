@@ -197,6 +197,7 @@ struct App {
   std::string pack_message;  // shown when idle: the last result
 
   bool launching = false;
+  bool ride_at_start = false;  // --ride (testing): RIDE with the saved settings on the first frame
   sys::Process game;
   uint64_t launch_deadline = 0;
   uint64_t next_poll = 0;
@@ -690,7 +691,7 @@ void Launch(App& a) {
     if (launcher_args[i] == "--offer-vendor") ++i;
     else if (launcher_args[i] != "--open-controls" && launcher_args[i] != "--open-keys" &&
              launcher_args[i] != "--open-resolutions" && launcher_args[i] != "--open-sizes" &&
-             launcher_args[i].rfind("--focus=", 0) != 0) {
+             launcher_args[i] != "--ride" && launcher_args[i].rfind("--focus=", 0) != 0) {
       extra.push_back(launcher_args[i]);
     }
   }
@@ -2010,6 +2011,10 @@ void Frame(App& a) {
   a.Rr = a.two_columns ? kLeft + 400.0f : wide_controls ? kDeckDesignW - kLeft : kRight;
   a.fk = a.two_columns || wide_controls ? 1.1f : 1.0f;
   PollVendor(a);
+  if (a.ride_at_start && !a.launching) {
+    a.ride_at_start = false;
+    Launch(a);
+  }
   if (!a.launching) {
     for (Act act : a.acts) {
       if (a.job) HandleVendor(a, act);
@@ -2152,6 +2157,7 @@ int RunLauncher() {
     if (args[i].rfind("--focus=", 0) == 0) a.focus = Item(std::atoi(args[i].c_str() + 8));
     if (args[i] == "--open-resolutions") a.focus = Item::Resolution, OpenResolutionList(a);
     if (args[i] == "--open-sizes") a.sizes = true;
+    if (args[i] == "--ride") a.ride_at_start = true;
   }
 
   Frame(a);

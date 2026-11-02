@@ -118,7 +118,8 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     "Start it from Steam (on the Deck, Desktop or Gaming Mode). The game folder",
     "browser sees your Linux files under Z:. On the Steam Deck, Recommended sets",
     "the best settings. 'Your streaming app' works with any MPRIS player",
-    "(Spotify etc.). Saves: pfx/drive_c/users/steamuser/Documents/amped3."
+    "(Spotify etc.). Saves: pfx/drive_c/users/steamuser/Documents/amped3.",
+    "Only tested on the Steam Deck so far."
 ) + $(if ($Release) { @() } else { @(
     "",
     "play_diag.bat: the launcher with frame-time logging on (frametimes.csv,",
