@@ -9,10 +9,14 @@
 # test PC fetches from).
 # -SdkDir: where rexruntime.dll / rexgpu-xenos.dll come from (build\ has the
 # last SDK built, e.g. the trial tree; project\sdk-bin the committed one).
-param([string]$Out = "dist", [string]$Name = "Amped3-recomp-test", [string]$SdkDir = "build",
+param([string]$Out = "dist", [string]$Name = "", [string]$SdkDir = "build",
       [switch]$Drop, [string]$DiagArgs = "", [switch]$Release)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+# The version (VERSION at the repo root): release packages are named after it.
+$version = (Get-Content (Join-Path $root "VERSION") -ErrorAction SilentlyContinue | Select-Object -First 1)
+if (-not $version) { $version = "0.0.0" }
+if (-not $Name) { $Name = if ($Release) { "ReAmped3-v$version" } else { "Amped3-recomp-test" } }
 $dir = Join-Path (Join-Path $root $Out) $Name
 $files = @(
     "build\amped3.exe",
@@ -42,7 +46,7 @@ Copy-Item (Join-Path $PSScriptRoot "..\project\assets\logo\logo.bmp") $dir
 # The build shown in the launcher's corner (date and commit; "+" = uncommitted changes).
 $commit = (git -C (Join-Path $PSScriptRoot "..") rev-parse --short HEAD 2>$null)
 if ($commit -and (git -C (Join-Path $PSScriptRoot "..") status --porcelain 2>$null)) { $commit += "+" }
-"build $(Get-Date -Format yyyy-MM-dd) $commit".Trim() | Set-Content -Encoding ascii (Join-Path $dir "version.txt")
+"v$version  build $(Get-Date -Format yyyy-MM-dd) $commit".Trim() | Set-Content -Encoding ascii (Join-Path $dir "version.txt")
 # Steam Deck / Linux: starts the launcher under Steam's Proton (LF line endings kept).
 Copy-Item (Join-Path $PSScriptRoot "linux\run.sh") $dir
 # The upscaler the launcher runs to make the sharp UI pack on the player's PC
@@ -81,7 +85,7 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     Copy-Item (Join-Path $crt.FullName $dll) $dir
 }
 @(
-    $(if ($Release) { "ReAmped 3 ($(Get-Date -Format yyyy-MM-dd))" } else { "ReAmped 3 - test build ($(Get-Date -Format yyyy-MM-dd))" }),
+    $(if ($Release) { "ReAmped 3 v$version ($(Get-Date -Format yyyy-MM-dd))" } else { "ReAmped 3 - test build ($(Get-Date -Format yyyy-MM-dd))" }),
     "",
     "Needs: Windows 10/11 x64, a CPU with AVX2, a DirectX 12 GPU, and your own",
     "extracted copy of Amped 3 (the folder with default.xex). No game files are",

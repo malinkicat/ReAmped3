@@ -17,6 +17,8 @@ You can play through the story, make riders, ride the open mountain and do event
 
 Steam Deck / Linux: it runs through Proton 10. The zip's README.txt has the steps (you add `run.sh` to Steam as a non-Steam game).
 
+If you'd rather build it yourself from source, see [Building from source](#building-from-source).
+
 ## What we added
 
 Launcher
