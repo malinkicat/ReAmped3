@@ -52,6 +52,8 @@ REXCVAR_DEFINE_STRING(menu_debug_page, "", "Debug",
                       "Debug: open the ReAmped 3 menu on this page (achievements, backups, controls) 30 s "
                       "into play, for screenshots");
 
+void Amped3_RequestGameSongChange(int delta);  // save_hooks.cpp
+
 namespace amped3::game_menu {
 namespace {
 
@@ -295,9 +297,14 @@ class MenuDialog : public rex::ui::ImGuiDialog {
         static const char* saved[] = {"game", "mine", "system"};
         int i = 0;
         while (i < 3 && Flag("user_music") != modes[i]) ++i;
+        const bool was_game = i == 0;
         i = ((i % 3) + delta + 3) % 3;
         rex::cvar::SetFlagByName("user_music", modes[i]);
         SaveSetting("music", saved[i]);
+        // Back to the game's soundtrack: while told another source played,
+        // the game stopped its radio, and it doesn't start again by itself.
+        // A fresh song, as the D-pad's next song.
+        if (i == 0 && !was_game) Amped3_RequestGameSongChange(1);
         // The other player's state is the old mode's: cleared, which also
         // tells the game whose music it is now (it only asks when told).
         static const auto set_external =
