@@ -45,6 +45,29 @@ It's a static recompilation: the game's PowerPC code is translated to x64 C++ wi
 - Speed: render targets and resolves reworked, per-draw overhead cut, and the game's hot matrix maths run as native code (bit-identical). About 100 to 200 FPS uncapped on an RTX 2080 Ti.
 - Single-pass rendering: the 360 drew each frame in 3 strips to fit its 10 MB of video memory. A PC doesn't need that, so we draw it once. Much less CPU work (the Deck holds 60 in the busiest spot). The catch: the game's own 2x MSAA goes with it, so SMAA is on by default. You can turn it off in the launcher.
 
+## Performance
+
+Measured at the busiest view in the game: the top of Loveseat on Northstar's open mountain, about 12,000-15,000 draws a frame. Riding elsewhere is lighter.
+
+**PC: RTX 2080 Ti, Ryzen 9 3900X** (1280x720, frame rate unlocked)
+
+| | Average | 1% low |
+|---|---|---|
+| Single-pass rendering on (default) | 159 FPS | 120 FPS |
+| Single-pass off (the game's own 2x MSAA) | 65 FPS | 58 FPS |
+
+The busiest views are limited by the CPU (the game's main thread and the GPU emulation), not the graphics card.
+
+**Steam Deck OLED, Proton 10** (the launcher's Recommended settings: full 1280x800 screen, SMAA, single-pass)
+
+| Frame rate setting | Average | 1% low |
+|---|---|---|
+| 60 FPS | 60.0 FPS | 59.0 FPS (locked) |
+| 90 FPS | 86.5 FPS | 55.2 FPS |
+| Unlocked | 91.9 FPS | 53.5 FPS |
+
+Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap in that spot. Ordinary riding averages about 90 at the 90 FPS setting.
+
 ## Changes to other projects
 
 **ReXGlue runtime** (our fork of [rexglue-sdk](https://github.com/rexglue/rexglue-sdk), BSD-3, published separately):
