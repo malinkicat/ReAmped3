@@ -56,6 +56,7 @@ In the game
 - A 2.7 second freeze when leaving the mountain.
 - Looping sounds that never looped.
 - The "stuck, press Back" tip popping up at high frame rates.
+- Crash checks and the funbox landing combo counted frames, so above 30 FPS they ran twice as fast. They count time now.
 
 ## Performance
 
