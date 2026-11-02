@@ -7,6 +7,9 @@
 # it's already in. Same metrics as tools/ride_bench.sh.
 cd "$(dirname "$0")/.." && . tools/env.sh
 label=$1; shift
+# Single-pass rendering as players get it (the launcher's default), unless the
+# arguments choose (e.g. --gpu_tile_collapse=false to measure the 3-strip path).
+case " $* " in *--gpu_tile_collapse=*) ;; *) set -- "$@" --gpu_tile_collapse=true ;; esac
 secs=${STAND_SECONDS:-15}
 own=0
 if [ ! -f private_work/.prog_save_active ]; then
@@ -17,10 +20,28 @@ rm -f ${AMPED3_BUILD:-build}/swaptimes.csv
 # This save opens on the trail map: quick_ride stops there (no presses on it);
 # up held 4 s takes the cursor to the top-most drop point, Loveseat (shorter
 # holds stop near challenges around it), and A drops in there.
-QUICK_STOP_SCENE=TrailMap QUICK_TIMEOUT=90 tools/quick_ride.sh --swap_times=true "$@" >/dev/null
+QUICK_STOP_SCENE=TrailMap QUICK_NO_SPEED=1 QUICK_TIMEOUT=90 tools/quick_ride.sh --swap_times=true "$@" >/dev/null
 # Then the stick held back (y -1: braking) from the drop on, so the rider stays
 # at the top (one script: a second pad.sh write can replace the first unread).
-sleep 3; tools/pad.sh "up 4000"; sleep 5.5; tools/pad.sh a "wait 3000" "stick 0 -1 $(( (secs + 20) * 1000 ))"; sleep 12
+# The map can take a few seconds to accept input (later on a busy PC): hold
+# up until the camera has swung onto Loveseat (the picture changes a lot), at
+# most 3 tries; never press A elsewhere (it would open an event's card).
+sleep 3; tools/shot.sh stand_map0 >/dev/null 2>&1
+moved=0
+for try in 1 2 3; do
+  tools/pad.sh "up 4000"; sleep 5.5; tools/shot.sh stand_map1 >/dev/null 2>&1
+  python3 - private_work/stand_map0.png private_work/stand_map1.png <<'PY' && { moved=1; break; }
+import sys
+from PIL import Image, ImageChops, ImageStat
+# Right half, upper map: an event's card (on the left) doesn't count as a move.
+a, b = (Image.open(f).convert('L').resize((320, 180)).crop((160, 20, 320, 130)) for f in sys.argv[1:3])
+diff = ImageStat.Stat(ImageChops.difference(a, b)).mean[0]
+sys.exit(0 if diff > 15 else 1)  # moved ~40, stuck 0
+PY
+done
+[ $moved = 1 ] || { echo "$label: the map cursor never reached Loveseat (private_work/stand_map1.png); not measured"; exit 1; }
+# STAND_PROFILE=N: also a CPU profile of N s from 3 s after the drop (build/cpu_profile.csv, tools/cpu_profile.py).
+tools/pad.sh a "wait 3000" ${STAND_PROFILE:+"profile $STAND_PROFILE"} "stick 0 -1 $(( (secs + 20) * 1000 ))"; sleep 12
 # (private_work/stand_view.png: what was measured.)
 where=""
 tools/shot.sh stand_view >/dev/null 2>&1

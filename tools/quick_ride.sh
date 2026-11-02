@@ -25,7 +25,9 @@ while sleep 1.5; do
   speed=""
   # Sped up once the story loads (after the title and Load a Rider: at 8x
   # the title can stop taking presses), or after QUICK_SPEED_AT s at most.
-  if [ $sped = 0 ] && { grep -qi "groverintro" run.log || [ $(( $(date +%s) - start )) -ge ${QUICK_SPEED_AT:-60} ]; }; then
+  # QUICK_NO_SPEED=1: never (a save that opens on the trail map has no story to
+  # wait through; at 8x its map shows a spot's card at once, blocking the D-pad).
+  if [ $sped = 0 ] && [ -z "$QUICK_NO_SPEED" ] && { grep -qi "groverintro" run.log || [ $(( $(date +%s) - start )) -ge ${QUICK_SPEED_AT:-60} ]; }; then
     grep -q "guest time x${QUICK_SPEED:-8}" run.log && sped=1 || speed="speed ${QUICK_SPEED:-8}"
   fi
   tasklist.exe | grep -qi amped3 || { echo "quick_ride: exited"; exit 1; }
