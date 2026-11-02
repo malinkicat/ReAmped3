@@ -214,6 +214,8 @@ struct App {
   uint64_t mouse_ignore_until = 0;
 };
 
+void SinglePassChanged(App& a);  // below
+
 // ---- small helpers -------------------------------------------------------
 
 ImVec2 P(const App& a, float x, float y) { return ImVec2(a.ox + x * a.s, (y + a.oy) * a.s); }
@@ -323,7 +325,14 @@ std::string ResolutionHint(const App& a) {
   }
   return hint + ".";
 }
-std::string AALabel(const std::string& v) {
+// With single-pass rendering off the game draws with its own 2x MSAA, so the
+// choices are that alone or a filter on top of it.
+std::string AALabel(const std::string& v, bool single_pass) {
+  if (!single_pass) {
+    if (v == "fxaa") return "Anti-aliasing: MSAA 2x + FXAA";
+    if (v == "smaa") return "Anti-aliasing: MSAA 2x + SMAA";
+    return "Anti-aliasing: MSAA 2x (the game's own)";
+  }
   if (v == "fxaa") return "Anti-aliasing: FXAA";
   if (v == "smaa") return "Anti-aliasing: SMAA (sharp)";
   if (v == "dlaa") return "Anti-aliasing: NVIDIA DLAA (RTX)";
@@ -392,13 +401,21 @@ std::pair<std::string, std::string> Explain(App& a) {
                                  "keeps it just under the refresh rate)."};
     case Item::SinglePass:
       return {"FAST SINGLE-PASS RENDERING",
-              "The Xbox 360 drew each frame in three strips (tiles) to fit its small video memory; the PC copy drew "
-              "everything three times. On: one pass, about twice as fast in busy views (the Steam Deck holds 60 "
-              "FPS in the busiest spots only with it). It drops the game's 2x MSAA, so pick FXAA or SMAA."};
+              "The Xbox 360 drew each frame in three strips (tiles) to fit its small video memory, so the scene was "
+              "drawn three times. On: drawn once, which more than doubles the frame rate in busy scenes (the Steam "
+              "Deck holds 60 FPS in the busiest spots only with it); SMAA smooths the edges. Off: the original "
+              "three-strip drawing with the game's own 2x MSAA anti-aliasing, much slower."};
     case Item::AA:
+      if (!a.st.single_pass) {
+        return {"ANTI-ALIASING",
+                "Single-pass rendering is off, so the game's own 2x MSAA is on. SMAA or FXAA can be added on top "
+                "for smoother edges still. Turn single-pass back on for more than double the frame rate (SMAA "
+                "then replaces the MSAA)."};
+      }
       return {"ANTI-ALIASING",
               "Smooths jagged edges. SMAA: sharp, clean edges, small cost (recommended). FXAA: the cheapest, a little "
-              "softer. None: the picture as drawn (fine at 4K)."};
+              "softer. None: the picture as drawn (fine at 4K). The game's own 2x MSAA comes with single-pass "
+              "rendering off."};
     case Item::Scaling:
       return {"SHARPENING",
               "AMD FidelityFX CAS sharpens the final picture, bringing back detail that anti-aliasing and scaling "
@@ -778,7 +795,10 @@ void Activate(App& a) {
     case Item::SharpUi: a.st.sharp_ui = !a.st.sharp_ui; break;
     case Item::ReampedLogo: a.st.reamped_logo = !a.st.reamped_logo; break;
     case Item::Tearing: a.st.allow_tearing = !a.st.allow_tearing; break;
-    case Item::SinglePass: a.st.single_pass = !a.st.single_pass; break;
+    case Item::SinglePass:
+      a.st.single_pass = !a.st.single_pass;
+      SinglePassChanged(a);
+      break;
     case Item::Controls: a.controls = true; a.ctl_sel = 0; break;
     case Item::UiSize: a.sizes = true; a.size_sel = 0; break;
     case Item::Resolution: OpenResolutionList(a); break;
@@ -1197,6 +1217,19 @@ float Hint(App& a, float x, float y, const std::string& cap, const std::string& 
   return x + TextW(a, a.body, 11.5f, label) + 16;
 }
 
+// Single-pass rendering switched: off brings back the game's own MSAA (shown
+// as the anti-aliasing, alone); on can't have it, so SMAA takes over.
+void SinglePassChanged(App& a) {
+  if (!a.st.single_pass) {
+    a.st.aa = "none";
+    a.status = "The game's own 2x MSAA is on (see Anti-aliasing)";
+  } else {
+    if (a.st.aa == "none") a.st.aa = "smaa";
+    a.status = "Single pass: SMAA smooths the edges";
+  }
+  a.status_error = false;
+}
+
 void DrawHints(App& a, float y) {
   float x = a.L + 2;
   if (a.job) {
@@ -1495,12 +1528,14 @@ void DrawMain(App& a) {
   bool vsync = !a.st.allow_tearing;
   CheckRow(a, Item::Tearing, 414, a.deck ? "V-Sync" : "V-Sync (off for G-Sync / FreeSync, above 60)", vsync);
   a.st.allow_tearing = !vsync;
+  const bool single_pass = a.st.single_pass;
   CheckRow(a, Item::SinglePass, 440, "Fast single-pass rendering (busy scenes)",
            a.st.single_pass);
+  if (a.st.single_pass != single_pass) SinglePassChanged(a);  // clicked
 
   // Image.
   Label(a, 474, "IMAGE AND MUSIC");
-  ChoiceRow(a, Item::AA, 492, AALabel(a.st.aa));
+  ChoiceRow(a, Item::AA, 492, AALabel(a.st.aa, a.st.single_pass));
   ChoiceRow(a, Item::Scaling, 530, SharpenLabel(a.st.sharpen));
   ChoiceRow(a, Item::Music, 568, MusicLabel(a.st.music));
   ChoiceRow(a, Item::UiSize, 606, "Menus and HUD size: " + std::to_string(a.st.ui_size) + "%");
