@@ -6,8 +6,6 @@ Performance has been the main focus. On an RTX 2080 Ti with a Ryzen 9 3900X it d
 
 It's a hybrid of static recompilation and emulation. The game's own PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built into a normal Windows program, so it runs natively. The rest of the Xbox 360 (the GPU, audio and system) is still emulated by the ReXGlue runtime, which comes from Xenia, and that's where most of our changes are. No game files are included, so you'll need your own copy.
 
-AI was used to help make this, for writing and reviewing code, research and testing. It's all been tested on a real PC and Steam Deck.
-
 You can play through the story, make riders, ride the open mountain and do events. It's had hours of real play on PC and Steam Deck plus long automated soak runs, and there are no known crashes.
 
 ## Installing
@@ -167,6 +165,8 @@ Never upload `build`, `dist`, `private_work` or `project/generated`. They contai
 - [Table-Tennis-Rockstar-PC](https://github.com/davidptrssvea/Table-Tennis-Rockstar-PC) for the frame graph, the launcher's starting point and some runtime fixes.
 - [Amped 3 Revamped](https://github.com/minty-hippo/amped3revamped) for the sled frame rate fixes.
 - Brian Maguire for finding the cause of the UI corruption, and [Xenia Canary PR #1129](https://github.com/xenia-canary/xenia-canary/pull/1129) for the fix.
+
+AI was used to help make this, for writing and reviewing code, research and testing. It's all been tested on a real PC and Steam Deck.
 
 Full details and licences are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
