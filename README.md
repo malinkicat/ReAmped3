@@ -2,11 +2,11 @@
 
 Amped 3 (Xbox 360, 2005) running natively on Windows 11 and the Steam Deck.
 
-**Built for performance.** The goal is high, steady frame rates on PC and a locked 60 on the Steam Deck, with the game looking and playing as it did:
+**Built for performance.** ReAmped 3's aim is a high, steady frame rate on any PC and a locked 60 on the Steam Deck, with the game looking and playing as it did on the Xbox 360:
 
-- **159 FPS** in the busiest view in the game on an RTX 2080 Ti / Ryzen 9 3900X PC (frame rate unlocked).
-- **A locked 60 FPS** on the Steam Deck in that same view, at its full 1280x800 screen (1% low 59).
-- Any frame rate cap, from the original 30 to unlocked, with gameplay at the right speed and even frame pacing.
+- **144 FPS at 4K** (153 at 720p) in the busiest view in the game, on an RTX 2080 Ti with a Ryzen 9 3900X.
+- **A locked 60 FPS on the Steam Deck** in that same view, filling its 1280x800 screen (1% low 59).
+- Any frame rate cap, from the original 30 to unlocked, with the game running at the right speed and even frame pacing.
 
 See [Performance](#performance) for the numbers and how we got there.
 
@@ -50,21 +50,21 @@ It's a static recompilation: the game's PowerPC code is translated to x64 C++ wi
 - A 2.7 s freeze leaving the mountain (the game waited out the 360's minimum save-message time without drawing).
 - Looping sounds that never looped (XMA loop points read as the wrong structure, inherited from Xenia).
 - The "stuck, press Back" tip misfiring at high frame rates.
-- Speed: render targets and resolves reworked, per-draw overhead cut, and the game's hot matrix maths run as native code (bit-identical). About 100 to 200 FPS uncapped on an RTX 2080 Ti.
-- Single-pass rendering: the 360 drew each frame in 3 strips to fit its 10 MB of video memory. A PC doesn't need that, so we draw it once. Much less CPU work (the Deck holds 60 in the busiest spot). The catch: the game's own 2x MSAA goes with it, so SMAA is on by default. You can turn it off in the launcher.
+- Speed: see [Performance](#performance). Single-pass rendering's one catch is that the game's own 2x MSAA goes with it, so SMAA is on by default; turn single-pass off in the launcher to get the MSAA back, at well under half the frame rate in busy scenes.
 
 ## Performance
 
-Measured at the busiest view in the game: the top of Loveseat on Northstar's open mountain, about 12,000-15,000 draws a frame. Riding elsewhere is lighter.
+All figures are from the busiest view in the game: the top of Loveseat on Northstar's open mountain, 12,000-15,000 draws a frame, standing still so every run sees the same scene. Ordinary riding is lighter.
 
-**PC: RTX 2080 Ti, Ryzen 9 3900X** (1280x720, frame rate unlocked)
+**PC: RTX 2080 Ti, Ryzen 9 3900X, Windows 11** (frame rate unlocked, SMAA, single-pass rendering: the defaults)
 
-| | Average | 1% low |
+| Resolution | Average | 1% low |
 |---|---|---|
-| Single-pass rendering on (default) | 159 FPS | 120 FPS |
-| Single-pass off (the game's own 2x MSAA) | 65 FPS | 58 FPS |
+| 4K (3840x2160) | 144 FPS | 111 FPS |
+| 720p | 153 FPS | 120 FPS |
+| 720p, single-pass off (the game's own 2x MSAA) | 65 FPS | 58 FPS |
 
-The busiest views are limited by the CPU (the game's main thread and the GPU emulation), not the graphics card.
+4K costs only about 6% here: the busiest views are limited by the CPU (the game's own main thread and the emulated GPU's command thread), not the graphics card.
 
 **Steam Deck OLED, Proton 10** (the launcher's Recommended settings: full 1280x800 screen, SMAA, single-pass)
 
@@ -74,14 +74,25 @@ The busiest views are limited by the CPU (the game's main thread and the GPU emu
 | 90 FPS | 86.5 FPS | 55.2 FPS |
 | Unlocked | 91.9 FPS | 53.5 FPS |
 
-Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap in that spot. Ordinary riding averages about 90 at the 90 FPS setting.
+Without single-pass rendering the Deck manages 58.7 FPS (1% low 45) at a 60 cap in that view. Ordinary riding averages about 90 at the 90 FPS setting.
 
-**How we got there**
+### How we got there
 
-- **Single-pass rendering.** The Xbox 360 drew each frame in three strips to fit its 10 MB of video memory, so the scene was drawn three times. A PC has no such limit, so we draw it once: more than double the frame rate in busy scenes.
-- **A faster GPU emulation.** The emulated GPU's command processor was reworked to cut its per-draw cost (render targets, resolves, register and constant handling, texture lookups), and the game's hottest maths runs as native x64 code with bit-identical results.
-- **Direct3D 12 over Vulkan.** We tried ReXGlue's Vulkan backend on the Steam Deck: it reached 54 FPS in the busiest view, where our Direct3D 12 path (run through Proton's translation to Vulkan) now holds a locked 60. Direct3D 12 is what ships, on Windows and the Deck alike.
-- **Measured, not guessed.** Every change was checked on a repeatable benchmark at that view on the PC and the Deck, and soak-tested for stability.
+**Draw each frame once.** The Xbox 360 had 10 MB of fast video memory, so the game draws every frame in three strips and sends the whole scene once per strip. A PC has no such limit: single-pass rendering draws the frame once at full size, which more than doubles the frame rate in busy scenes (153 vs 65 FPS above). It's what lets the Steam Deck hold 60.
+
+**A leaner emulated GPU.** The game talks to an emulated Xbox 360 GPU, whose command thread was the bottleneck. We reworked it draw by draw:
+- render targets and resolves handled directly for this game's MSAA and strip layouts (building on iExplosiveRage's ReXGlue work);
+- register writes stored in bulk, shader constants gathered in runs and identical uploads reused, texture and sampler state cached, pipelines reused when nothing changed;
+- memory the game rewrites every frame no longer trapped on every write;
+- frames presented from the submission thread instead of waiting for it.
+
+**Native code for the game's hottest maths.** Its matrix multiply, point transform, visibility test, memory copy and decompressor run as hand-written x64 code instead of translated PowerPC, with bit-identical results, checked over tens of millions of calls in play.
+
+**Tuned for the Steam Deck.** Under Proton the GPU command processor runs as two threads and waits block instead of spinning, leaving the Deck's four cores to the game. Frame pacing waits are tuned so 60 and 90 FPS stay even.
+
+**Direct3D 12 over Vulkan.** We tried ReXGlue's Vulkan backend on the Steam Deck: it reached 54 FPS in the busiest view, where our Direct3D 12 path (through Proton's translation to Vulkan) now holds a locked 60. Direct3D 12 is what ships, on Windows and the Deck.
+
+**Measured, not guessed.** Every change was checked on a repeatable benchmark at that view, on the PC and the Deck, kept only when it won, and soak-tested for stability.
 
 ## Changes to other projects
 
