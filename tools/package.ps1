@@ -46,7 +46,41 @@ Copy-Item (Join-Path $PSScriptRoot "..\project\assets\logo\logo.bmp") $dir
 # The build shown in the launcher's corner (date and commit; "+" = uncommitted changes).
 $commit = (git -C (Join-Path $PSScriptRoot "..") rev-parse --short HEAD 2>$null)
 if ($commit -and (git -C (Join-Path $PSScriptRoot "..") status --porcelain 2>$null)) { $commit += "+" }
-"v$version  build $(Get-Date -Format yyyy-MM-dd) $commit".Trim() | Set-Content -Encoding ascii (Join-Path $dir "version.txt")
+# The runtime's commit too (its source tree from tools\local.cmd's SDK_SRC),
+# read from its files: it can be a worktree whose .git link is a WSL path.
+function Get-GitCommit([string]$repo) {
+    $dotgit = Join-Path $repo ".git"
+    if (-not (Test-Path $dotgit)) { return "" }
+    $gitdir = $dotgit
+    if (Test-Path $dotgit -PathType Leaf) {
+        $gitdir = ((Get-Content $dotgit -TotalCount 1) -replace '^gitdir:\s*', '').Trim()
+        if ($gitdir -match '^/mnt/([a-z])/(.*)$') { $gitdir = "$($Matches[1].ToUpper()):\" + ($Matches[2] -replace '/', '\') }
+    }
+    $head = (Get-Content (Join-Path $gitdir "HEAD") -TotalCount 1).Trim()
+    if ($head -notmatch '^ref:\s*(.+)$') { return $head.Substring(0, 7) }
+    $ref = $Matches[1]
+    $common = $gitdir
+    if (Test-Path (Join-Path $gitdir "commondir")) {
+        $common = [IO.Path]::GetFullPath((Join-Path $gitdir (Get-Content (Join-Path $gitdir "commondir") -TotalCount 1).Trim()))
+    }
+    $refFile = Join-Path $common ($ref -replace '/', '\')
+    if (Test-Path $refFile) { return (Get-Content $refFile -TotalCount 1).Trim().Substring(0, 7) }
+    $packed = Join-Path $common "packed-refs"
+    if (Test-Path $packed) {
+        $line = Select-String -Path $packed -Pattern (" " + [regex]::Escape($ref) + "$") | Select-Object -First 1
+        if ($line) { return $line.Line.Substring(0, 7) }
+    }
+    return ""
+}
+$runtime = ""
+$localCmd = Join-Path $PSScriptRoot "local.cmd"
+if (Test-Path $localCmd) {
+    $src = Select-String -Path $localCmd -Pattern 'set SDK_SRC=(.+)$' | Select-Object -First 1
+    if ($src) { $runtime = Get-GitCommit $src.Matches[0].Groups[1].Value.Trim() }
+}
+$stamp = "v$version  build $(Get-Date -Format yyyy-MM-dd) $commit"
+if ($runtime) { $stamp += " runtime $runtime" }
+$stamp.Trim() | Set-Content -Encoding ascii (Join-Path $dir "version.txt")
 # Steam Deck / Linux: starts the launcher under Steam's Proton (LF line endings kept).
 Copy-Item (Join-Path $PSScriptRoot "linux\ReAmped3.sh") $dir
 # The upscaler the launcher runs to make the sharp UI pack on the player's PC
