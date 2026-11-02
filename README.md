@@ -12,6 +12,8 @@ The numbers and what we did to get them are under [Performance](#performance).
 
 It's a static recompilation: the game's PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built as a normal Windows program, running on our modified ReXGlue runtime (Direct3D 12). It's not an emulator, and no game files are included, so you need your own copy of the game.
 
+Heads up: we used AI as part of this project, to help write and review code, dig through the game, and run the testing and benchmarks. Everything here was tested on a real PC and a Steam Deck.
+
 Status: playable from start through the story, menus, rider creation, the open mountain and events. No known crashes (45 minute soak on PC and 25 minutes on the Deck, both clean).
 
 ## Installing
