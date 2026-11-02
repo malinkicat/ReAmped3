@@ -111,9 +111,8 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     "If something goes wrong, send amped3.log from this folder.",
     "",
     "Steam Deck or Linux PC: runs under Steam's Proton (install Proton 10.0",
-    "from Steam: Library > Tools; Flatpak Steam isn't supported yet). Put this",
-    "folder in your home folder (Deck: in Desktop Mode), open a terminal in it",
-    "and run: chmod +x run.sh",
+    "from Steam: Library > Tools; Flatpak Steam isn't supported yet). Unzip it",
+    "into your home folder (Deck: in Desktop Mode).",
     "Then Steam > Add a Non-Steam Game > Browse (show all files) > run.sh.",
     "Start it from Steam (on the Deck, Desktop or Gaming Mode). The game folder",
     "browser sees your Linux files under Z:. On the Steam Deck, Recommended sets",
@@ -168,7 +167,48 @@ if (-not $Release) {
 
 $zip = Join-Path (Join-Path $root $Out) "$Name.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue
-Compress-Archive -Path $dir -DestinationPath $zip
+# Not Compress-Archive: Windows PowerShell's writes backslash paths and no
+# Unix permissions, so on Linux the folders unzip unreadable (drw-r--r--) and
+# run.sh needs a chmod. Forward slashes, folders 755, files 644, run.sh 755.
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$stream = [System.IO.File]::Open($zip, [System.IO.FileMode]::CreateNew)
+$archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    $base = Split-Path -Parent $dir
+    $folders = @(Get-Item $dir) + @(Get-ChildItem $dir -Recurse -Directory)
+    foreach ($folder in $folders) {
+        $name = $folder.FullName.Substring($base.Length + 1).Replace('\', '/') + "/"
+        $entry = $archive.CreateEntry($name)
+        $entry.ExternalAttributes = (0x41ED -shl 16) -bor 0x10   # drwxr-xr-x, and the DOS directory flag
+    }
+    foreach ($file in Get-ChildItem $dir -Recurse -File) {
+        $name = $file.FullName.Substring($base.Length + 1).Replace('\', '/')
+        $entry = $archive.CreateEntry($name, [System.IO.Compression.CompressionLevel]::Optimal)
+        $mode = if ($file.Name -eq "run.sh") { 0x81ED } else { 0x81A4 }   # -rwxr-xr-x / -rw-r--r--
+        $entry.ExternalAttributes = $mode -shl 16
+        $entry.LastWriteTime = $file.LastWriteTime
+        $dst = $entry.Open()
+        $in = [System.IO.File]::OpenRead($file.FullName)
+        try { $in.CopyTo($dst) } finally { $in.Close(); $dst.Close() }
+    }
+} finally {
+    $archive.Dispose(); $stream.Dispose()
+}
+# Mark every entry "made on Unix" (the high byte of "version made by" in the
+# central directory) so Linux unzip applies the permissions above; Windows
+# ignores it. Walked via the end-of-central-directory record, not a search.
+$bytes = [System.IO.File]::ReadAllBytes($zip)
+$eocd = $bytes.Length - 22
+while ($eocd -ge 0 -and [BitConverter]::ToUInt32($bytes, $eocd) -ne 0x06054b50) { $eocd-- }
+if ($eocd -lt 0) { throw "zip: no end of central directory" }
+$count = [BitConverter]::ToUInt16($bytes, $eocd + 10)
+$at = [BitConverter]::ToUInt32($bytes, $eocd + 16)
+for ($i = 0; $i -lt $count; $i++) {
+    if ([BitConverter]::ToUInt32($bytes, $at) -ne 0x02014b50) { throw "zip: bad central directory entry $i" }
+    $bytes[$at + 5] = 3
+    $at += 46 + [BitConverter]::ToUInt16($bytes, $at + 28) + [BitConverter]::ToUInt16($bytes, $at + 30) + [BitConverter]::ToUInt16($bytes, $at + 32)
+}
+[System.IO.File]::WriteAllBytes($zip, $bytes)
 "$dir"
 "$zip ($([math]::Round((Get-Item $zip).Length / 1MB, 1)) MB)"
 if ($Drop) {
