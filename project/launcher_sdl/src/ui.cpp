@@ -402,7 +402,7 @@ std::pair<std::string, std::string> Explain(App& a) {
       return {"FAST SINGLE-PASS RENDERING",
               "The Xbox 360 drew each frame in three strips (tiles) to fit its small video memory, so the scene was "
               "drawn three times. On: drawn once, which more than doubles the frame rate in busy scenes (the Steam "
-              "Deck holds 60 FPS in the busiest spots only with it); SMAA smooths the edges. Off: the original "
+              "Deck stays near 60 FPS in the busiest spots only with it); SMAA smooths the edges. Off: the original "
               "three-strip drawing with the game's own 2x MSAA anti-aliasing, much slower."};
     case Item::AA:
       if (!a.st.single_pass) {
@@ -448,7 +448,7 @@ std::pair<std::string, std::string> Explain(App& a) {
     case Item::Recommended:
       return {"RECOMMENDED SETTINGS",
               "Recommended: sets what runs best on the Steam Deck: the full 1280x800 screen, 60 FPS, SMAA, fast single-pass rendering "
-              "and V-Sync, with help tips at 130% so they are easy to read. Measured at the busiest spot in the open world: a steady 60."};
+              "and V-Sync, with help tips at 130% so they are easy to read. Measured in one of the heaviest open-world areas: near-locked at 60."};
     case Item::Save: return {"SAVE", "Saves these settings now (RIDE and Quit save them too)."};
     default: return {};
   }

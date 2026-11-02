@@ -2,10 +2,10 @@
 
 Amped 3 (Xbox 360, 2005) running natively on Windows 11 and the Steam Deck.
 
-This one is all about performance. We wanted it running fast and smooth on PC and locked at 60 on the Steam Deck, while still looking and playing like the original:
+This one is all about performance. We wanted it running fast and smooth on PC and near-locked at 60 on the Steam Deck, while still looking and playing like the original:
 
 - 144 FPS at 4K on an RTX 2080 Ti with a Ryzen 9 3900X, in one of the less performant areas of the game.
-- A locked 60 FPS on the Steam Deck in the same area, full 1280x800 screen.
+- A near-locked 60 FPS on the Steam Deck in the same area (1% low 59), full 1280x800 screen.
 - Any frame rate you want, from the original 30 up to unlocked, and the game still runs at the right speed.
 
 The numbers and what we did to get them are under [Performance](#performance).
@@ -84,7 +84,7 @@ Without single-pass the Deck can't hold 60 there (58.7 average, 1% low 45). Norm
 
 ### How we got there
 
-Single-pass rendering. The Xbox 360 only had 10 MB of fast video memory, so the game draws every frame in three strips, which means sending the whole scene three times. A PC doesn't have that limit, so we draw it once. That more than doubles the frame rate in busy areas, and it's what gets the Deck to a locked 60.
+Single-pass rendering. The Xbox 360 only had 10 MB of fast video memory, so the game draws every frame in three strips, which means sending the whole scene three times. A PC doesn't have that limit, so we draw it once. That more than doubles the frame rate in busy areas, and it's what gets the Deck to a near-locked 60.
 
 Making the emulated GPU faster. The game still talks to an emulated Xbox 360 GPU, and that was the bottleneck, so we went through it draw by draw:
 - render targets and resolves handled directly for how this game draws (building on iExplosiveRage's ReXGlue work)
@@ -96,7 +96,7 @@ Native code for the game's heaviest maths. Its matrix multiply, point transform,
 
 Steam Deck tuning. Under Proton the emulated GPU runs on two threads and waits sleep instead of spinning, which leaves the Deck's four cores free for the game. Frame pacing is tuned so 60 and 90 stay even.
 
-Direct3D 12 over Vulkan. We tried ReXGlue's Vulkan backend on the Deck and it only got 54 FPS in that same area, where our Direct3D 12 version (through Proton) holds 60. So Direct3D 12 is what we ship on both Windows and the Deck.
+Direct3D 12 over Vulkan. We tried ReXGlue's Vulkan backend on the Deck and it only got 54 FPS in that same area, where our Direct3D 12 version (through Proton) stays near-locked at 60. So Direct3D 12 is what we ship on both Windows and the Deck.
 
 Every change was benchmarked in that same spot on the PC and the Deck and only kept if it was faster, then soak tested.
 
@@ -120,7 +120,7 @@ Nothing from the game is shipped. The patched menus, the loading screen and the 
 - Only the USA disc has been tested.
 - The busiest spots are CPU limited, around 140 FPS on a fast PC.
 - The dark shape behind some menu titles (like LOAD A RIDER) looks a bit jagged at 4K. It's a rough mesh in the game itself.
-- Steam Deck: short pauses on loading screens. Riding holds 60.
+- Steam Deck: short pauses on loading screens. Riding itself stays smooth.
 
 ## What you need
 
