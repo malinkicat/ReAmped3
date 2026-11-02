@@ -163,6 +163,13 @@ std::atomic<int> g_save_and_resume{0};
 
 // The menu's Quit row: save (if a rider is loaded), then quit.
 std::atomic<bool> g_save_and_quit{false};
+// quit_prompt.cpp's text: whether Quit saves first (QuickSave's conditions,
+// bar the prompt itself, which closes before the save).
+bool Amped3_WillSaveOnQuit() {
+  return REXCVAR_GET(quick_save) && g_loaded_frames >= 300 && !Amped3_CinematicPlaying() &&
+         !amped3::game_menu::IsOpen();
+}
+
 void Amped3_SaveAndQuit() {
   g_save_and_quit = true;
   // If the game's thread doesn't come round (stuck loading), quit anyway.

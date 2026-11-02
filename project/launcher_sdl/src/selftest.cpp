@@ -108,7 +108,7 @@ void CommandLines() {
   CheckEq(BuildGameArgs(deck, "Z:\\home\\deck\\ReAmped3\\", {1280, 800, 60}, {"--log_file=amped3.log", "--log_flush_interval=1"}),
           "--game_data_root=\"Z:\\home\\deck\\ReAmped3\\game\" --resolution_scale=1 --draw_resolution_scale_x=1 --draw_resolution_scale_y=1"
           " --window_width=1280 --window_height=800 --fullscreen=true --present_letterbox=false --tall_squeeze=0.9000"
-          " --swap_post_effect=smaa --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=30"
+          " --swap_post_effect=smaa --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=60"
           " --mnk_mode=true --gpu_tile_collapse=true --user_music=off --sharp_ui=false --skip_intro=false --anisotropic_override=5 --log_file=\"Z:\\home\\deck\\ReAmped3\\amped3.log\" --log_file=amped3.log --log_flush_interval=1",
           "command line: Steam Deck defaults");
   Settings deck90 = deck;
@@ -166,11 +166,11 @@ void Scales() {
 
 void SettingsFile() {
   Settings w = ParseSettings(nullptr, false);
-  Check(w.resolution == "native" && w.fps_choice == 30 && w.fullscreen && w.allow_tearing && w.aa == "smaa" && w.sharpen == 30 &&
+  Check(w.resolution == "native" && w.fps_choice == 60 && w.fullscreen && w.allow_tearing && w.aa == "smaa" && w.sharpen == 30 &&
             w.game_path.empty(),
         "Windows defaults");
   Settings d = ParseSettings(nullptr, true);
-  Check(d.resolution == "native" && d.fps_choice == 30, "Deck defaults: Match the display, 30");
+  Check(d.resolution == "native" && d.fps_choice == 60, "Deck defaults: Match the display, 60");
 
   const std::string text =
       "game_path=D:\\Games\\Amped 3\r\nresolution=1440p\r\nframerate=auto\r\nallow_tearing=false\r\n"
@@ -334,7 +334,7 @@ void SharpUi() {
 void FrameRates() {
   std::vector<int> deck = FpsChoices(true);
   Check(deck.size() >= 4 && deck[0] == 30 && deck[1] == 40 && deck[2] == 60 && deck[3] == 90, "Deck list 30/40/60/90");
-  Check(DefaultSettings(true).fps_choice == 30 && DefaultSettings(false).fps_choice == 30, "default 30 (the game's own)");
+  Check(DefaultSettings(true).fps_choice == 60 && DefaultSettings(false).fps_choice == 60, "default 60");
   Check(std::find(deck.begin(), deck.end(), kCustomFps) != deck.end() && std::find(deck.begin(), deck.end(), 0) != deck.end(),
         "Deck keeps Custom and Unlimited");
   std::vector<int> win = FpsChoices(false);
@@ -377,6 +377,8 @@ void Folders() {
   std::filesystem::create_directories(game, ec);
   std::string dist = Utf8(base) + "\\";
   std::string dir = Utf8(game);
+  CheckEq(PathFlag("game_data_root", "E:\\"), std::string("--game_data_root=\"E:\\\\\""), "a drive root's backslash doesn't escape the quote");
+  CheckEq(PathFlag("log_file", "C:\\A B\\x.log"), std::string("--log_file=\"C:\\A B\\x.log\""), "a path in quotes");
   Check(!GameFolderValid(""), "empty folder is not valid");
   Check(!GameFolderValid(dir), "folder without default.xex is not valid");
   Check(!RideEnabled(GameFolderValid(dir)), "RIDE disabled without default.xex");

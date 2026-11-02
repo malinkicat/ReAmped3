@@ -90,5 +90,12 @@ void AttachParentConsole();
 // One copy at a time: false if the game (or another launcher) is already
 // running, after bringing its window to the front.
 bool ClaimSingleInstance();
+// After RIDE, while the launcher finishes the sharp UI pack without a window:
+// a new launcher may start.
+void ReleaseSingleInstance();
+// One sharp UI pack build at a time (a launcher left finishing one after RIDE):
+// false if another is running.
+bool ClaimPackBuild();
+void ReleasePackBuild();
 
 }  // namespace sys

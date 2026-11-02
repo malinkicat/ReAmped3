@@ -159,7 +159,8 @@ struct App {
   // selected game button.
   bool pad_capturing = false;
   // The header's logo made from the game's own (textures\launcher_logo.png).
-  std::atomic<bool> logo_made{false};
+  // Set by the logo thread (detached: shared, so it may finish after the launcher).
+  std::shared_ptr<std::atomic<bool>> logo_made = std::make_shared<std::atomic<bool>>(false);
   bool logo_started = false;
   bool logo_from_game = false;
   bool window_resized = false;  // by the player: its size is remembered
@@ -198,6 +199,7 @@ struct App {
 
   bool launching = false;
   bool ride_at_start = false;  // --ride (testing): RIDE with the saved settings on the first frame
+  uint64_t ride_at_ms = 0;     // --ride_after N (testing): ... after N seconds, as a player would
   sys::Process game;
   uint64_t launch_deadline = 0;
   uint64_t next_poll = 0;
@@ -1361,11 +1363,16 @@ void UpdatePack(App& a, bool valid) {
   o.esrgan_dir = launcher::JoinPath(launcher::JoinPath(a.dist_dir, "tools"), "esrgan");
   o.scale = a.deck ? 2 : 4;
   if (!uipack::UpscalerPresent(o.esrgan_dir) || uipack::UpToDate(o)) return;
+  if (!sys::ClaimPackBuild()) {
+    a.pack_message = "Sharp UI is still being made (from the last start); it's used once ready";
+    return;
+  }
   a.pack = std::make_unique<App::PackJob>();
   App::PackJob* job = a.pack.get();
   job->started_ms = SDL_GetTicks();
   job->thread = std::thread([job, o] {
     job->ok = uipack::Build(o, job->progress, job->cancel, job->error);
+    sys::ReleasePackBuild();
     job->finished = true;
   });
 }
@@ -1386,21 +1393,21 @@ void UpdateLogo(App& a, bool valid) {
     sys::ReadFile(version, made);
     if (sys::FileExists(png) && (!sys::FileExists(stamp) || sys::FileTime(png) >= sys::FileTime(stamp)) &&
         made == want) {
-      a.logo_made = true;
+      *a.logo_made = true;
     } else {
       uipack::Options o;
       o.game_dir = a.st.game_path;
       o.textures_dir = textures;
       sys::MakeDir(textures);
-      std::thread([&a, o, png, version, want] {
+      std::thread([made = a.logo_made, o, png, version, want] {
         if (uipack::WriteLauncherLogo(o, png)) {
           sys::WriteFile(version, want);
-          a.logo_made = true;
+          *made = true;
         }
       }).detach();
     }
   }
-  if (!a.logo_made.exchange(false)) return;
+  if (!a.logo_made->exchange(false)) return;
   std::string data;
   int w = 0, h = 0, channels = 0;
   if (!sys::ReadFile(png, data)) return;
@@ -2039,7 +2046,7 @@ void Frame(App& a) {
   a.Rr = a.two_columns ? kLeft + 400.0f : wide_controls ? kDeckDesignW - kLeft : kRight;
   a.fk = a.two_columns || wide_controls ? 1.1f : 1.0f;
   PollVendor(a);
-  if (a.ride_at_start && !a.launching) {
+  if (a.ride_at_start && !a.launching && SDL_GetTicks() >= a.ride_at_ms) {
     a.ride_at_start = false;
     Launch(a);
   }
@@ -2082,6 +2089,8 @@ int RunLauncher() {
   a.wine = sys::RunningUnderWine();
   a.screen = sys::PrimaryDisplay();
   a.deck = IsDeck(a.wine, a.screen);
+  // ReAmped3.sh's board check (a docked Deck too), or Steam's own SteamDeck=1.
+  if (a.wine && (sys::EnvVar("REAMPED3_STEAM_DECK") == "1" || sys::EnvVar("SteamDeck") == "1")) a.deck = true;
   // REAMPED3_LAUNCHER_DECK=1 (fullscreen) or =window (1280x800 window): the
   // Deck's layout and frame-rate list on any PC, for checking them.
   std::string deck_env = sys::EnvVar("REAMPED3_LAUNCHER_DECK");
@@ -2096,6 +2105,8 @@ int RunLauncher() {
   std::string ini;
   a.settings_exist = sys::ReadFile(a.dist_dir + "settings.ini", ini);
   a.st = ParseSettings(a.settings_exist ? &ini : nullptr, a.deck);
+  // First start on a Steam Deck: the measured Recommended settings.
+  if (!a.settings_exist && a.deck) ApplyDeckRecommended(a.st);
   a.res_choices = ResolutionChoices(sys::DisplayModes(), a.st.resolution);
   if (!FolderValid(a)) {
     std::string found = AutoDetectGameDir(a.dist_dir);
@@ -2186,6 +2197,10 @@ int RunLauncher() {
     if (args[i] == "--open-resolutions") a.focus = Item::Resolution, OpenResolutionList(a);
     if (args[i] == "--open-sizes") a.sizes = true;
     if (args[i] == "--ride") a.ride_at_start = true;
+    if (args[i] == "--ride_after" && i + 1 < args.size()) {
+      a.ride_at_start = true;
+      a.ride_at_ms = SDL_GetTicks() + 1000ull * std::strtoull(args[++i].c_str(), nullptr, 10);
+    }
   }
 
   Frame(a);
@@ -2210,7 +2225,6 @@ int RunLauncher() {
   }
 
   a.job.reset();   // stops a download in progress
-  a.pack.reset();  // stops the sharp UI pack (it carries on at the next start)
   ImGui_ImplSDLRenderer3_Shutdown();
   ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
@@ -2219,6 +2233,14 @@ int RunLauncher() {
   SDL_DestroyRenderer(a.renderer);
   SDL_DestroyWindow(a.window);
   SDL_Quit();
+  // After RIDE the sharp UI pack is finished without a window (the README's
+  // "you can ride meanwhile"; used from the next start); Quit stops it (it
+  // carries on at the next start).
+  if (a.launching && a.pack && !a.pack->finished) {
+    sys::ReleaseSingleInstance();
+    while (!a.pack->finished) std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  }
+  a.pack.reset();
   // Under Proton the launcher stays (without a window) until the game exits,
   // so `proton run` and Steam see one program from start to quit.
   if (a.launching && a.wine) sys::WaitForExit(a.game);

@@ -324,6 +324,11 @@ void FocusWindowTitled(const wchar_t* prefix) {
 }
 }  // namespace
 
+namespace {
+HANDLE g_launcher_lock = nullptr;
+HANDLE g_pack_lock = nullptr;
+}  // namespace
+
 bool ClaimSingleInstance() {
   // The game holds "Local\ReAmped3.Game" (amped3_app.h).
   if (HANDLE game = OpenMutexW(SYNCHRONIZE, FALSE, L"Local\\ReAmped3.Game")) {
@@ -331,12 +336,32 @@ bool ClaimSingleInstance() {
     FocusWindowTitled(L"ReAmped 3 |");
     return false;
   }
-  static HANDLE mine = CreateMutexW(nullptr, FALSE, L"Local\\ReAmped3.Launcher");
-  if (mine && GetLastError() == ERROR_ALREADY_EXISTS) {
+  g_launcher_lock = CreateMutexW(nullptr, FALSE, L"Local\\ReAmped3.Launcher");
+  if (g_launcher_lock && GetLastError() == ERROR_ALREADY_EXISTS) {
     FocusWindowTitled(L"ReAmped 3");
     return false;
   }
   return true;
+}
+
+void ReleaseSingleInstance() {
+  if (g_launcher_lock) CloseHandle(g_launcher_lock);
+  g_launcher_lock = nullptr;
+}
+
+bool ClaimPackBuild() {
+  HANDLE lock = CreateMutexW(nullptr, FALSE, L"Local\\ReAmped3.UiPack");
+  if (lock && GetLastError() == ERROR_ALREADY_EXISTS) {
+    CloseHandle(lock);
+    return false;
+  }
+  g_pack_lock = lock;
+  return true;
+}
+
+void ReleasePackBuild() {
+  if (g_pack_lock) CloseHandle(g_pack_lock);
+  g_pack_lock = nullptr;
 }
 
 void AttachParentConsole() {

@@ -147,7 +147,7 @@ void ApplyDeckRecommended(Settings& s) {
 
 Settings ParseSettings(const std::string* text, bool deck) {
   Settings s = DefaultSettings(deck);
-  int framerate = 30;  // the game's own
+  int framerate = 60;  // when not saved: 60 (the game's own is 30)
   // settings.ini from before single-pass rendering: no anti-aliasing was the
   // default then (the game's MSAA was on) - now SMAA is.
   bool saw_single_pass = false;
@@ -537,7 +537,7 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
                 " --resolution_scale=%d --draw_resolution_scale_x=%d --draw_resolution_scale_y=%d"
                 " --window_width=%d --window_height=%d --fullscreen=%s",
                 scale, scale_x, scale, width, height, s.fullscreen ? "true" : "false");
-  std::string args = "--game_data_root=\"" + TrimPath(s.game_path) + "\"" + buf;
+  std::string args = PathFlag("game_data_root", TrimPath(s.game_path)) + buf;
   if (ultrawide) {
     std::snprintf(buf, sizeof(buf), " --present_letterbox=false --ultrawide_squeeze=%.4f", 16.0 / 9.0 / aspect);
     args += buf;
@@ -587,13 +587,13 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
   // Always said: the game on its own skips them.
   args += std::string(" --skip_intro=") + (s.skip_intro ? "true" : "false");
   // Always (the source can be switched to your music in the game's menu).
-  if (!s.music_dir.empty()) args += " --user_music_dir=\"" + s.music_dir + "\"";
+  if (!s.music_dir.empty()) args += " " + PathFlag("user_music_dir", s.music_dir);
   if (!s.pad_map.empty()) args += " --pad_button_map=" + s.pad_map;
   for (const auto& [id, keys] : s.keys) args += " --keybind_" + id + "=" + (keys.empty() ? "\"\"" : keys);
   // Anisotropic filtering: 16x (free at 60 on the Deck); 8x on the Deck above
   // 60, where the GPU is near its limit (16x cost ~5 FPS on the 1% low at 90).
   args += std::string(" --anisotropic_override=") + (s.deck && (fps == 0 || fps > 60) ? "4" : "5");
-  args += " --log_file=\"" + JoinPath(dist_dir, "amped3.log") + "\"";
+  args += " " + PathFlag("log_file", JoinPath(dist_dir, "amped3.log"));
   // Above 60 the game picks tearing on by default; only override when turned off.
   if ((high_fps && !s.allow_tearing) || frame_generation) {
     args += " --vsync=true --d3d12_allow_variable_refresh_rate_and_tearing=false";
@@ -607,6 +607,20 @@ std::string BuildCommandLine(const std::string& exe, const std::string& args) {
   std::string cmd = "\"" + exe + "\"";
   if (!args.empty()) cmd += " " + args;
   return cmd;
+}
+
+std::string PathFlag(const std::string& name, const std::string& path) {
+  // Backslashes before the closing quote doubled (a drive root "E:\\" would
+  // otherwise escape the quote and swallow the rest of the command line).
+  std::string out = "--" + name + "=\"";
+  size_t slashes = 0;
+  for (char c : path) {
+    if (c == '"') continue;  // can't be in a Windows path
+    slashes = c == '\\' ? slashes + 1 : 0;
+    out += c;
+  }
+  out.append(slashes, '\\');
+  return out + "\"";
 }
 
 std::string QuoteArg(const std::string& arg) {

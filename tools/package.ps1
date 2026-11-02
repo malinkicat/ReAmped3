@@ -118,9 +118,12 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     "from Steam: Library > Tools; Flatpak Steam isn't supported yet). Unzip it",
     "into your home folder (Deck: in Desktop Mode).",
     "Then Steam > Add a Non-Steam Game > Browse (show all files) > ReAmped3.sh.",
+    "Leave its Properties > Compatibility off (don't force a Proton version):",
+    "ReAmped3.sh starts Proton itself. Keep the folder on the internal drive or",
+    "an ext4 SD card (not exFAT/FAT: Proton's prefix needs Linux file rights).",
     "Start it from Steam (on the Deck, Desktop or Gaming Mode). The game folder",
-    "browser sees your Linux files under Z:. On the Steam Deck, Recommended sets",
-    "the best settings. 'Your streaming app' works with any MPRIS player",
+    "browser sees your Linux files under Z:. On the Steam Deck the first start",
+    "uses the Recommended settings. 'Your streaming app' works with any MPRIS player",
     "(Spotify etc.). Saves: pfx/drive_c/users/steamuser/Documents/amped3.",
     "Only tested on the Steam Deck so far."
 ) + $(if ($Release) { @() } else { @(

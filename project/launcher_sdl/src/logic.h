@@ -26,7 +26,7 @@ struct DisplayInfo {
 struct Settings {
   std::string game_path;
   std::string resolution;  // native (match the display), WxH (one of its modes), or 720p, 1080p, 1440p, 4k
-  int fps_choice = 30;     // one of FpsChoices(); 30 = the game's own
+  int fps_choice = 60;     // one of FpsChoices(); 30 = the game's own, 60 the first-run default
   int custom_fps = 141;
   bool allow_tearing = true;
   bool fullscreen = true;
@@ -175,6 +175,8 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
 // The full command line: "exe" args.
 std::string BuildCommandLine(const std::string& exe, const std::string& args);
 // One argument for a Windows command line (quoted only when needed).
+// --name="path", quoted for the Windows command line (trailing backslashes too).
+std::string PathFlag(const std::string& name, const std::string& path);
 std::string QuoteArg(const std::string& arg);
 
 // Focus targets on the main screen.

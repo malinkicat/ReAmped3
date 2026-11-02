@@ -5,12 +5,21 @@
 # versions); PROTON_NAME=<folder in steamapps/common> picks another.
 cd "$(dirname "$0")"
 here=$(pwd)
-common=$HOME/.steam/steam/steamapps/common
+# Steam's folder: ~/.steam/steam (the Deck, most installs) or
+# ~/.local/share/Steam (some distributions, without the ~/.steam link).
+steam=$HOME/.steam/steam
+[ -d "$steam/steamapps/common" ] || steam=$HOME/.local/share/Steam
+common=$steam/steamapps/common
 proton="$common/${PROTON_NAME:-Proton 10.0}/proton"
 [ -x "$proton" ] || proton=$(ls -d "$common"/Proton\ [0-9]*/proton 2>/dev/null | sort -V | tail -1)
 [ -x "$proton" ] || { echo "No Proton found in $common: install Proton 10.0 from Steam (Library > Tools)."; exit 1; }
-export STEAM_COMPAT_CLIENT_INSTALL_PATH=$HOME/.steam/steam
+export STEAM_COMPAT_CLIENT_INSTALL_PATH=$steam
 export STEAM_COMPAT_DATA_PATH=$here/pfx
+# A Steam Deck by its board (Jupiter: LCD, Galileo: OLED), docked or not: the
+# launcher and game otherwise go by the 1280x800 screen.
+case "$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null)" in
+  Jupiter|Galileo) export REAMPED3_STEAM_DECK=1 ;;
+esac
 mkdir -p "$STEAM_COMPAT_DATA_PATH"
 echo "proton: $proton"
 

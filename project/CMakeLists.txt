@@ -72,6 +72,9 @@ if(WIN32)
     target_link_libraries(amped3 PRIVATE d3d11 dxgi shell32 psapi)  # frame graph, window title, cpu profile
     # Function addresses for tools/cpu_profile.py (the exe has no PDB).
     target_link_options(amped3 PRIVATE "LINKER:/MAP:${CMAKE_BINARY_DIR}/amped3.map")
+    # UTF-8 process code page (assets/amped3.manifest): non-ASCII game folders.
+    target_link_options(amped3 PRIVATE "LINKER:/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/assets/amped3.manifest")
+    set_property(TARGET amped3 APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/amped3.manifest")
 endif()
 
 # Patched SDK runtime and GPU DLLs (built by tools\build_sdk_ffx.cmd into sdk-bin/).

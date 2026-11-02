@@ -30,6 +30,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <optional>
 #include <string_view>
 #include <atomic>
@@ -140,8 +141,13 @@ int& UiSize() {
 bool OnSteamDeck() {
   static const bool deck = [] {
     HMODULE ntdll = GetModuleHandleA("ntdll.dll");
-    return ntdll && GetProcAddress(ntdll, "wine_get_version") &&
-           GetSystemMetrics(SM_CXSCREEN) == 1280 && GetSystemMetrics(SM_CYSCREEN) == 800;
+    if (!ntdll || !GetProcAddress(ntdll, "wine_get_version")) return false;
+    // ReAmped3.sh's board check (docked too) or Steam's SteamDeck=1, else the screen.
+    for (const char* name : {"REAMPED3_STEAM_DECK", "SteamDeck"}) {
+      const char* value = std::getenv(name);
+      if (value && std::string(value) == "1") return true;
+    }
+    return GetSystemMetrics(SM_CXSCREEN) == 1280 && GetSystemMetrics(SM_CYSCREEN) == 800;
   }();
   return deck;
 }

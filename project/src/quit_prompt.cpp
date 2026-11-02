@@ -29,6 +29,7 @@
 #include <windows.h>
 
 void Amped3_SaveAndQuit();  // save_hooks.cpp: saves, then QuitFromAnyThread
+bool Amped3_WillSaveOnQuit();  // save_hooks.cpp
 
 namespace amped3::quit_prompt {
 namespace {
@@ -145,7 +146,8 @@ class QuitDialog : public rex::ui::ImGuiDialog {
     ImGui::PopFont();
     y += 64.0f * scale;
     ImGui::PushFont(ui, 20.0f * scale);
-    draw->AddText(ImVec2(o.x + pad, y), Color(kMuted), "Progress since your last save is lost.");
+    draw->AddText(ImVec2(o.x + pad, y), Color(kMuted),
+                  Amped3_WillSaveOnQuit() ? "Your progress is saved first." : "Progress since your last save is lost.");
     ImGui::PopFont();
     y += 46.0f * scale;
     // Buttons: both plain, no highlight - they're pressed with A / B (or a
