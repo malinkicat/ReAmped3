@@ -4,7 +4,7 @@ A PC port of Amped 3 (Xbox 360, 2005) for Windows 11 and the Steam Deck.
 
 Performance has been the main focus. On an RTX 2080 Ti with a Ryzen 9 3900X it does 144 FPS at 4K in one of the less performant areas of the game, and on the Steam Deck it's near locked at 60 in the same spot. You can set any frame rate from the original 30 up to unlocked and the game still runs at the right speed. More on that under [Performance](#performance).
 
-It's a static recompilation, not an emulator. The game's PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built into a normal Windows program, running on our own modified ReXGlue runtime. No game files are included, so you'll need your own copy.
+It's a hybrid of static recompilation and emulation. The game's own PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built into a normal Windows program, so it runs natively. The rest of the Xbox 360 (the GPU, audio and system) is still emulated by the ReXGlue runtime, which comes from Xenia, and that's where most of our changes are. No game files are included, so you'll need your own copy.
 
 AI was used to help make this, for writing and reviewing code, research and testing. It's all been tested on a real PC and Steam Deck.
 
