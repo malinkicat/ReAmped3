@@ -46,8 +46,11 @@ wait_game() {
     for p in $(echo "$players" | grep -i spotify) $(echo "$players" | grep -vi spotify); do
       q "$p" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus | grep -q Playing && { playing=$p; break; }
     done
-    if [ -f media_command.txt ]; then
-      cmd=$(tr -d '\r' < media_command.txt); rm -f media_command.txt
+    # The game appends one command a line: take the file (new ones go to a
+    # fresh one) and carry them out in order.
+    if [ -f media_command.txt ] && mv -f media_command.txt media_command.work 2>/dev/null; then
+      while IFS= read -r cmd || [ -n "$cmd" ]; do
+      cmd=${cmd%$'\r'}
       [ -n "$playing" ] && case "$cmd" in
         next) q "$playing" --method org.mpris.MediaPlayer2.Player.Next >/dev/null ;;
         previous) q "$playing" --method org.mpris.MediaPlayer2.Player.Previous >/dev/null ;;
@@ -57,6 +60,8 @@ wait_game() {
         [ -n "$p" ] && q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
       esac
       [ "$cmd" = play ] && [ -n "$paused_player" ] && { q "$paused_player" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; paused_player=""; }
+      done < media_command.work
+      rm -f media_command.work
     fi
     if [ -n "$playing" ]; then
       m=$(q "$playing" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata)

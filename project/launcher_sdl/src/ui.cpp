@@ -441,7 +441,8 @@ std::pair<std::string, std::string> Explain(App& a) {
       } else if (a.st.music == "system") {
         text = "Experimental. Spotify or another streaming / music app (YouTube Music, Tidal, a browser...) plays "
                "instead of the game's songs: start it, and the game's music steps aside while it plays. D-pad skips "
-               "its tracks. Apps that don't report to the system's media controls aren't followed.";
+               "its tracks. If nothing is playing when you ride and Spotify is installed, it's started for you. "
+               "Apps that don't report to the system's media controls aren't followed.";
       } else {
         text = "The game's own soundtrack, as on the Xbox 360.";
       }

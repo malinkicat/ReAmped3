@@ -225,11 +225,17 @@ bool UnderWine() {
 void RunFromFile() {
   const auto folder = rex::filesystem::GetExecutableFolder();
   REXLOG_INFO("Amped3: media session: reading media_session.txt (Linux players via run.sh)");
+  {
+    std::error_code ec;  // an earlier session's commands aren't carried out now
+    std::filesystem::remove(folder / "media_command.txt", ec);
+  }
   bool was_playing = false, paused_by_us = false;
   Settled settled;
   std::string last_text;
   auto command = [&](const char* what) {
-    std::ofstream out(folder / "media_command.txt", std::ios::binary);  // LF only, for run.sh
+    // Appended (one a line, LF only): ReAmped3.sh takes the file and carries
+    // them out in order, so quick ones in a row aren't lost.
+    std::ofstream out(folder / "media_command.txt", std::ios::binary | std::ios::app);
     out << what << "\n";
     if (!out) REXLOG_WARN("Amped3: media session: couldn't write media_command.txt");
   };

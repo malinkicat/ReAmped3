@@ -124,6 +124,7 @@ Nothing from the game is shipped. The patched menus, the loading screen and the 
 
 - Windows 11 x64, a CPU with AVX2 and a Direct3D 12 graphics card. Or a Steam Deck, or a Linux PC with Steam and Proton 10.
 - Your own Amped 3 disc, extracted (the folder with `default.xex`).
+- For Sharp UI: a graphics driver with Vulkan (the upscaler uses it), about 1 GB free while it builds, and around 4 GB of RAM for the game with it on (16 GB in the PC is plenty). It lives in `textures` next to the launcher.
 
 ## Building from source
 
