@@ -1869,11 +1869,19 @@ void DrawPicker(App& a) {
     Tick(P(a, a.Rr - 126, 153), 16 * a.s, kCyan, a.s);
     BoldText(a, 11.5f, a.Rr - 106, 154, kCyan, "default.xex found");
   }
+  // default.xex here but not the rest: a part-extracted disc.
+  const bool part = !a.picker_music && !here_valid && !a.picker_dir.empty() &&
+                    sys::FileExists(JoinPath(a.picker_dir, "default.xex"));
+  const std::string part_note =
+      part ? "default.xex is here but not the rest of the game (" + MissingGameData(a.picker_dir) +
+                 " is missing): extract the whole disc again."
+           : "";
   const char* note = a.picker_error ? "This folder can't be opened."
                      : a.picker_music ? "Open the folder with your music (its subfolders are played too), then choose it."
                      : here_valid   ? "This is it: choose this folder."
+                     : part         ? part_note.c_str()
                                     : "Open the folder that holds default.xex, then choose it.";
-  Text(a, a.body, 11.5f, a.L + 2, 183, a.picker_error ? kError : here_valid ? kCyan : kMuted, note);
+  Text(a, a.body, 11.5f, a.L + 2, 183, a.picker_error || part ? kError : here_valid ? kCyan : kMuted, note);
 
   // The list.
   const float row_h = 30.0f, top = 206.0f;
