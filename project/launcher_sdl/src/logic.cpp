@@ -319,7 +319,7 @@ const std::vector<KeyAction>& KeyActions() {
       {"dpad_down", "Snowball mode", "G", "D-pad down"},
       {"dpad_left", "Previous song", "F", "D-pad left"},
       {"dpad_right", "Next song", "H", "D-pad right"},
-      {"back", "Reset when stuck / quick save (menus)", "Backspace", "Back"},
+      {"back", "Reset when stuck", "Backspace", "Back"},
       {"start", "Pause", "Return", "Start"},
       {"dpad_up", "D-pad up", "T", "D-pad up", false},
       {"lstick_press", "Left stick press", "C", "Left stick press", false},

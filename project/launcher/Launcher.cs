@@ -76,7 +76,7 @@ namespace Amped3Launcher
         private readonly string distDir = AppDomain.CurrentDomain.BaseDirectory;
         private readonly string configFile;
 
-        // "Night session" theme (see docs/superpowers/specs/...-launcher-and-name-entry-design.md).
+        // "Night session" theme.
         private const string ThemeXaml = @"
 <ResourceDictionary xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
                     xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'>

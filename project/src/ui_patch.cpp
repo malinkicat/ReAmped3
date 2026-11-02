@@ -48,7 +48,12 @@
 #include "../thirdparty/stb/stb_image.h"
 
 REXCVAR_DEFINE_BOOL(ui_patch, true, "UI", "Add ReAmped 3 to the game's own Options screen");
-// Off since 2026-11-02 (user): it isn't a save state, only the last save
+// Off since 2026-11-02 (user), as is quick save below: neither is a save state.
+REXCVAR_DEFINE_BOOL(quick_save_menus, false, "Game",
+                    "Back in the pause screen and the options pages saves progress (the game's own save) "
+                    "and goes straight back to the ride. Off: Back does what the game does (Quit ReAmped 3 "
+                    "still saves: --quick_save)");
+// Quick load: it isn't a save state, only the last save
 // reloaded through the main menu, which the pause menu already offers.
 REXCVAR_DEFINE_BOOL(quick_load, false, "Game",
                     "LB twice on the pause screen loads the last save (through the game's own path: "
@@ -738,7 +743,7 @@ struct NativePage {
 };
 constexpr int kAchievementRows = 15;
 constexpr int kBackupRows = 10;
-// The tree (Codex's and Fable's review, 2026-10-31): a hub of links, each
+// The tree (reviewed 2026-10-31): a hub of links, each
 // page at most 4 rows; lists only where the content is a list.
 // Pause > Options opens it (the user's layout, 2026-11-01):
 //   Options: Audio > / Display > / Extras > / Quit ReAmped 3
@@ -883,7 +888,7 @@ bool NativeScene(LuaFunction& f, const NativePage& page) {
   const auto backs = SetTablePcs(f, "BButton", "$Back");
   if (backs.size() != 1 || !SetValue(f, backs[0], "PopScene()")) return false;
   // Back: quick save and straight back to the game (save_hooks.cpp saves).
-  {
+  if (REXCVAR_GET(quick_save_menus)) {
     const auto key = Const(f, "Back"), value = Const(f, "PushScene('ReAmped3_resume')");
     if (!key || !value) return false;
     Insert(f, backs[0] + 1, Encode(kSetTable, A(f.code[backs[0]]), *key, *value));
@@ -1249,7 +1254,7 @@ bool Build(const fs::path& game, const fs::path& out) {
            const auto audio = SetTablePcs(f, "AButton", "$Select(AudioAndMusicOptions2)");
            return audio.size() == 1 && SetValue(f, audio[0], "$Select(ReAmped3Ach)") &&
                   EnableReAmpedItem(f, 2, "$Select(ReAmped3Bak)") &&
-                  AddButton(f, "$Back", "Back", "PushScene('ReAmped3_resume')", "BButton");
+                  (!REXCVAR_GET(quick_save_menus) || AddButton(f, "$Back", "Back", "PushScene('ReAmped3_resume')", "BButton"));
          });
        }},
       // The pause screen: Back saves and unpauses.
@@ -1259,7 +1264,8 @@ bool Build(const fs::path& game, const fs::path& out) {
            // Options: our Options page (Audio / Display / Extras / Quit).
            const auto options = SetTablePcs(f, "AButton", "$Options");
            if (options.size() != 1 || !SetValue(f, options[0], "PushScene('ReAmped3')")) return false;
-           return AddButton(f, "$Unpause", "Back", "PushScene('ReAmped3_resume_pause')", "BButton") &&
+           return (!REXCVAR_GET(quick_save_menus) ||
+                   AddButton(f, "$Unpause", "Back", "PushScene('ReAmped3_resume_pause')", "BButton")) &&
                   (!REXCVAR_GET(quick_load) ||
                    AddButton(f, "$Unpause", "WhiteButton", "PushScene('ReAmped3_load_pause')", "BButton"));
          });
@@ -1325,6 +1331,7 @@ bool Build(const fs::path& game, const fs::path& out) {
       }
     }
     for (const char* id : kQuickSaveLegends) {
+      if (!REXCVAR_GET(quick_save_menus)) break;
       if (!SetString(d, id, [](const std::u16string* old) -> std::optional<std::u16string> {
             if (!old) return std::nullopt;
             return *old + kLegendQuickSave;
@@ -1481,7 +1488,7 @@ void Prepare() {
     std::ostringstream stamp;
     stamp << kVersion << "+sizes" << REXCVAR_GET(ui_size_debug_no_insert) << REXCVAR_GET(ui_size_debug_scenes) << REXCVAR_GET(ui_size) << '/' << REXCVAR_GET(ui_size_menus) << '/'
           << REXCVAR_GET(ui_size_hud) << '/' << REXCVAR_GET(ui_size_tips) << '/' << REXCVAR_GET(ui_size_music) << '/'
-          << REXCVAR_GET(ui_size_legends) << (REXCVAR_GET(title_logo) ? "+logo" + std::to_string(title_logo::kLogoVersion) : "") << (REXCVAR_GET(quick_load) ? "+load" : "");
+          << REXCVAR_GET(ui_size_legends) << (REXCVAR_GET(title_logo) ? "+logo" + std::to_string(title_logo::kLogoVersion) : "") << (REXCVAR_GET(quick_load) ? "+load" : "") << (REXCVAR_GET(quick_save_menus) ? "+save" : "");
     for (const char* name : {"GuiPackages/Game.rui", "GuiPackages/Base.rui", "GuiPackages/Shell.rui",
                              "GuiPackages/Shell.ruirr", "resources.dir"}) {
       std::error_code ec;

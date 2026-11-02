@@ -41,7 +41,6 @@ In the game
 - Your own music, either from a folder or your streaming app (Spotify etc.). It only plays where the game's soundtrack would, so riding and the in-game menus, not the title, loading screens, cutscenes or event jingles. Tracks show up in the game's own radio popup and the D-pad skips them.
 - ReAmped 3 settings inside the game's own Options menu (Audio, Display, Extras).
 - Achievements, with a popup, a chime and a list showing your progress.
-- Quick save (Back on the pause screen).
 - Save backups, the last 10 are kept and you can restore one from the menu.
 - On-screen keyboard for naming a new rider with a controller.
 - ReAmped logo on the title and loading screens if you want it (off by default, so you get the original Amped 3 logo).

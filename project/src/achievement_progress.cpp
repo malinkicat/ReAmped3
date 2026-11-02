@@ -8,7 +8,7 @@
 // array of 56-byte records at [[[0x8288F0A8] + 56] + 12], the value at +0
 // (an int, or a float for distances).
 //
-// Milestones (Codex and Fable's research, private_work/achievement_research_*):
+// Milestones (from our research notes):
 // the first progress, then 10%, 50% and 90%, each shown once ever (a ledger in
 // the user data folder, outside the saves, so restoring a backup doesn't
 // repeat them). What's already passed when a save is loaded is recorded
