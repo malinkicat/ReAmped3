@@ -165,11 +165,12 @@ void SettingsFile() {
       "fullscreen=true\r\naa=fxaa\r\nsharpen=40\r\nwide_fill=false\r\nsingle_pass=true\r\nmusic=mix\r\nsharp_ui=false\r\n";
   Settings s = ParseSettings(&text, false);
   Check(s.game_path == "D:\\Games\\Amped 3" && s.resolution == "2560x1440" && s.fps_choice == kAutoFps && !s.allow_tearing &&
-            s.fullscreen && s.aa == "fxaa" && s.sharpen == 40 && !s.wide_fill && s.music == "mix",
+            s.fullscreen && s.aa == "fxaa" && s.sharpen == 40 && !s.wide_fill && s.music == "mine",
         "parse settings.ini");
-  // (An old preset is saved back as its size.)
+  // (An old preset is saved back as its size; "taking turns", no longer offered, as your music files.)
   std::string resaved = text;
   resaved.replace(resaved.find("resolution=1440p"), 16, "resolution=2560x1440");
+  resaved.replace(resaved.find("music=mix"), 9, "music=mine");
   CheckEq(FormatSettings(s), resaved, "settings.ini round trip");
 
   const std::string odd =

@@ -340,7 +340,6 @@ std::string AALabel(const std::string& v, bool single_pass) {
 }
 std::string MusicLabel(const std::string& v) {
   if (v == "mine") return "Music: your music files";
-  if (v == "mix") return "Music: taking turns with the game's (experimental)";
   if (v == "system") return "Music: your streaming app, e.g. Spotify (experimental)";
   return "Music: the game's soundtrack";
 }
@@ -430,9 +429,6 @@ std::pair<std::string, std::string> Explain(App& a) {
         text = "Experimental. Spotify or another streaming / music app (YouTube Music, Tidal, a browser...) plays "
                "instead of the game's songs: start it, and the game's music steps aside while it plays. D-pad skips "
                "its tracks. Apps that don't report to the system's media controls aren't followed.";
-      } else if (a.st.music == "mix") {
-        text = "Experimental. One of your songs, then one of the game's, and so on. Yours come from your music files, or from "
-               "your streaming app when the folder has none. D-pad skips to the next." + folder;
       } else {
         text = "The game's own soundtrack, as on the Xbox 360.";
       }
@@ -812,7 +808,7 @@ void Activate(App& a) {
       a.status = "Settings saved";
       a.status_error = false;
       break;
-    case Item::Music: if (a.st.music == "mine" || a.st.music == "mix") OpenPicker(a, true); break;
+    case Item::Music: if (a.st.music == "mine") OpenPicker(a, true); break;
     case Item::Quit: SaveSettings(a); a.quit = true; break;
     case Item::Ride: Launch(a); break;
     case Item::CustomFps: break;
@@ -1621,7 +1617,7 @@ void DrawMain(App& a) {
     if (status.empty() && !enabled) {
       status = "Choose your Amped 3 folder";
       error = false;
-    } else if (status.empty() && a.focus == Item::Music && (a.st.music == "mine" || a.st.music == "mix")) {
+    } else if (status.empty() && a.focus == Item::Music && a.st.music == "mine") {
       status = "A / Enter: choose your music folder";
     } else if (status.empty() && a.focus == Item::Music && a.st.music == "system") {
       status = "Start Spotify (or another music app); the game's music pauses while it plays";

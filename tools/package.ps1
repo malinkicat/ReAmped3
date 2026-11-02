@@ -150,7 +150,7 @@ if (-not $Release) {
     "4. Look for rendering glitches: seams, wrong shadows, flicker, menus.",
     "5. Music: your music files (choose the folder with A on the Music row),",
     "   your streaming app (Spotify: no game songs under it for a whole ride,",
-    "   loading screens too), taking turns (one yours, one the game's).",
+    "   loading screens too).",
     "6. Start > Options while riding: Audio, Display, Extras; B goes back.",
     "7. Earn an achievement: a popup with a chime.",
     "8. Sharp UI: crisp menus, icons and text at 4K; X on Sharp UI remakes it.",

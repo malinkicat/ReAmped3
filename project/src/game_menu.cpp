@@ -290,11 +290,12 @@ class MenuDialog : public rex::ui::ImGuiDialog {
   static void Change(Row row, int delta) {
     switch (row) {
       case Row::kMusic: {
-        static const char* modes[] = {"off", "on", "mix", "system"};
-        static const char* saved[] = {"game", "mine", "mix", "system"};
+        // (No "taking turns": removed from the choices; mix still runs if set by hand.)
+        static const char* modes[] = {"off", "on", "system"};
+        static const char* saved[] = {"game", "mine", "system"};
         int i = 0;
-        while (i < 4 && Flag("user_music") != modes[i]) ++i;
-        i = ((i % 4) + delta + 4) % 4;
+        while (i < 3 && Flag("user_music") != modes[i]) ++i;
+        i = ((i % 3) + delta + 3) % 3;
         rex::cvar::SetFlagByName("user_music", modes[i]);
         SaveSetting("music", saved[i]);
         // The other player's state is the old mode's: cleared, which also

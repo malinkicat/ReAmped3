@@ -100,7 +100,9 @@ const std::vector<std::string>& AAValues() {
   return v;
 }
 const std::vector<std::string>& MusicValues() {
-  static const std::vector<std::string> v = {"game", "mine", "mix", "system"};
+  // (No "taking turns" any more: confusing, and unreliable in testing. A saved
+  // "mix" reads as your music files.)
+  static const std::vector<std::string> v = {"game", "mine", "system"};
   return v;
 }
 
@@ -185,7 +187,7 @@ Settings ParseSettings(const std::string* text, bool deck) {
         }
       }
       else if (key == "launcher_height") s.launcher_height = std::clamp(ParseInt(val), 0, 8640);
-      else if (key == "music") s.music = Contains(MusicValues(), val) ? val : MusicValues()[0];
+      else if (key == "music") s.music = val == "mix" ? "mine" : Contains(MusicValues(), val) ? val : MusicValues()[0];
       else if (key == "single_pass") s.single_pass = ParseBool(val), saw_single_pass = true;
       else if (key == "screen_fog") s.screen_fog = ParseBool(val);
       else if (key == "falling_snow") s.falling_snow = ParseBool(val);
@@ -565,7 +567,7 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
   args += std::string(" --gpu_tile_collapse=") +
           (s.single_pass || s.aa == "dlaa" || frame_generation ? "true" : "false");
   // The player's own music from the music folder next to the game.
-  args += std::string(" --user_music=") + (s.music == "mine" ? "on" : s.music == "mix" ? "mix" : s.music == "system" ? "system" : "off");
+  args += std::string(" --user_music=") + (s.music == "mine" ? "on" : s.music == "system" ? "system" : "off");
   // UI sizes (the game's UI patch scales each scene from its own anchors).
   if (s.ui_size != 100) args += " --ui_size=" + std::to_string(s.ui_size);
   for (const UiSizeKind& k : UiSizeKinds()) {
@@ -580,7 +582,7 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
   if (!s.board_spray) args += " --board_spray=false";
   if (!s.sharp_ui) args += " --sharp_ui=false";
   if (s.reamped_logo) args += " --title_logo=true";
-  if (!s.music_dir.empty() && (s.music == "mine" || s.music == "mix")) args += " --user_music_dir=\"" + s.music_dir + "\"";
+  if (!s.music_dir.empty() && s.music == "mine") args += " --user_music_dir=\"" + s.music_dir + "\"";
   if (!s.pad_map.empty()) args += " --pad_button_map=" + s.pad_map;
   for (const auto& [id, keys] : s.keys) args += " --keybind_" + id + "=" + (keys.empty() ? "\"\"" : keys);
   // Anisotropic filtering: 16x (free at 60 on the Deck); 8x on the Deck above
