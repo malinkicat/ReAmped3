@@ -70,7 +70,7 @@ It's a static recompilation: the game's PowerPC code is translated to x64 C++ wi
 
 ## What you need
 
-- Windows 10/11 x64 with an AVX2 CPU and a Direct3D 12 GPU, or a Steam Deck (Proton 10).
+- Windows 10/11 x64 with an AVX2 CPU and a Direct3D 12 GPU, or a Steam Deck / Linux PC with Steam's Proton 10 (add the package's `run.sh` to Steam as a non-Steam game; its README.txt has the steps).
 - Your own Amped 3 disc, extracted (the folder with `default.xex`).
 
 ## Building

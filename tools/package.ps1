@@ -39,6 +39,8 @@ Copy-Item (Join-Path $PSScriptRoot "..\THIRD_PARTY_NOTICES.md") $dir
 Copy-Item -Recurse (Join-Path $PSScriptRoot "..\project\assets\fonts") (Join-Path $dir "fonts")
 # The ReAmped 3 logo for the launcher header (generated with FLUX.1 schnell, tools/art/logo_gen.py + logo_cut.py).
 Copy-Item (Join-Path $PSScriptRoot "..\project\assets\logo\logo.bmp") $dir
+# Steam Deck / Linux: starts the launcher under Steam's Proton (LF line endings kept).
+Copy-Item (Join-Path $PSScriptRoot "linux\run.sh") $dir
 # The upscaler the launcher runs to make the sharp UI pack on the player's PC
 # from their own game files (ui_pack.cpp): Real-ESRGAN ncnn Vulkan v0.2.5.0
 # and two of its models, with their licenses. Not in git (~47 MB):
@@ -98,7 +100,16 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     "",
     "In game: F10 shows the frame-time graph. The window title shows the settings.",
     "Saves: Documents\amped3. Settings: settings.ini here.",
-    "If something goes wrong, send amped3.log from this folder."
+    "If something goes wrong, send amped3.log from this folder.",
+    "",
+    "Steam Deck / Linux: runs under Proton (install Proton 10.0 from Steam:",
+    "Library > Tools). In Desktop Mode, put this folder in your home folder,",
+    "open a terminal in it and run: chmod +x run.sh",
+    "Then Steam > Add a Non-Steam Game > Browse (show all files) > run.sh.",
+    "Start it from Steam, in Desktop or Gaming Mode. The launcher's game folder",
+    "browser sees your Linux files under Z:. On the Steam Deck, Recommended sets",
+    "the best settings. 'Your streaming app' works with any MPRIS player",
+    "(Spotify etc.). Saves: pfx/drive_c/users/steamuser/Documents/amped3."
 ) + $(if ($Release) { @() } else { @(
     "",
     "play_diag.bat: the launcher with frame-time logging on (frametimes.csv,",

@@ -1,0 +1,73 @@
+#!/bin/bash
+# ReAmped 3 on the Steam Deck and Linux: starts amped3_launcher.exe under
+# Proton (Steam's own copy; add this file to Steam as a non-Steam game).
+# Proton 10.0 is preferred (it ran this game about 50% faster than the 11-based
+# versions); PROTON_NAME=<folder in steamapps/common> picks another.
+cd "$(dirname "$0")"
+here=$(pwd)
+common=$HOME/.steam/steam/steamapps/common
+proton="$common/${PROTON_NAME:-Proton 10.0}/proton"
+[ -x "$proton" ] || proton=$(ls -d "$common"/Proton\ [0-9]*/proton 2>/dev/null | sort -V | tail -1)
+[ -x "$proton" ] || { echo "No Proton found in $common: install Proton 10.0 from Steam (Library > Tools)."; exit 1; }
+export STEAM_COMPAT_CLIENT_INSTALL_PATH=$HOME/.steam/steam
+export STEAM_COMPAT_DATA_PATH=$here/pfx
+mkdir -p "$STEAM_COMPAT_DATA_PATH"
+echo "proton: $proton"
+
+# "Music: your streaming app": the game runs under Proton and can't see Linux
+# music players, so pass the playing MPRIS player (Spotify first) on once a
+# second as media_session.txt ("playing" or "stopped", then "Artist - Title"),
+# and carry out the game's requests in media_command.txt (next, previous,
+# pause, play, volume N).
+wait_game() {
+  sleep 5
+  until pgrep -f '[a]mped3\.exe' >/dev/null; do
+    pgrep -f '[a]mped3_launcher\.exe' >/dev/null || return 1
+    sleep 1
+  done
+}
+(
+  command -v gdbus >/dev/null || exit 0
+  wait_game || exit 0
+  q() { gdbus call --session --dest "$1" --object-path /org/mpris/MediaPlayer2 "${@:2}" 2>/dev/null; }
+  while pgrep -f '[a]mped3\.exe' >/dev/null; do
+    players=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+      --method org.freedesktop.DBus.ListNames 2>/dev/null | grep -o "org\.mpris\.MediaPlayer2\.[A-Za-z0-9_.-]*" | sort -r)
+    playing=""
+    for p in $(echo "$players" | grep -i spotify) $(echo "$players" | grep -vi spotify); do
+      q "$p" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus | grep -q Playing && { playing=$p; break; }
+    done
+    if [ -f media_command.txt ]; then
+      cmd=$(tr -d '\r' < media_command.txt); rm -f media_command.txt
+      [ -n "$playing" ] && case "$cmd" in
+        next) q "$playing" --method org.mpris.MediaPlayer2.Player.Next >/dev/null ;;
+        previous) q "$playing" --method org.mpris.MediaPlayer2.Player.Previous >/dev/null ;;
+        pause) q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=$playing; playing="" ;;
+      esac
+      case "$cmd" in volume\ *) v=${cmd#volume }; p=${playing:-$paused_player}
+        [ -n "$p" ] && q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
+      esac
+      [ "$cmd" = play ] && [ -n "$paused_player" ] && { q "$paused_player" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; paused_player=""; }
+    fi
+    if [ -n "$playing" ]; then
+      m=$(q "$playing" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata)
+      title=$(echo "$m" | sed -n -e "s/.*'xesam:title': <'\([^']*\)'>.*/\1/p" -e "s/.*'xesam:title': <\"\([^\"]*\)\">.*/\1/p" | head -1)
+      artist=$(echo "$m" | sed -n -e "s/.*'xesam:artist': <\['\([^']*\)'.*/\1/p" -e "s/.*'xesam:artist': <\[\"\([^\"]*\)\".*/\1/p" | head -1)
+      printf 'playing\n%s\n' "${artist:+$artist - }$title" > .media_session.tmp
+    else
+      printf 'stopped\n\n' > .media_session.tmp
+    fi
+    mv -f .media_session.tmp media_session.txt
+    sleep 1
+  done
+  rm -f media_session.txt media_command.txt
+) >/dev/null 2>&1 &
+
+# Controller input even when the window isn't focused (gamescope/KWin don't
+# always give a Proton window focus).
+export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
+# KDE desktop (Steam Deck Desktop Mode): keep the screen on while it runs.
+inhibit=()
+pgrep -u "$(id -u)" -x plasmashell >/dev/null && command -v kde-inhibit >/dev/null &&
+  inhibit=(kde-inhibit --power --screenSaver)
+exec "${inhibit[@]}" "$proton" run "$here/amped3_launcher.exe" --log_file=amped3.log "$@"
