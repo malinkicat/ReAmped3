@@ -50,7 +50,12 @@ void Store32(uint8_t* base, uint32_t address, uint32_t value) {
 // in contact) and dropped when it's reset.
 void Scale(uint8_t* base, uint32_t rider, uint32_t offset, uint32_t before, float& fraction) {
   const uint32_t after = Load32(base, rider + offset);
-  if (after == before) return;
+  if (after == before) {
+    // Holding, except at 0: the game resets a counter that's already 0 (e.g.
+    // the no-contact count on contact), and the carried rest goes with it.
+    if (after == 0) fraction = 0.0f;
+    return;
+  }
   if (after != before + 1) {
     fraction = 0.0f;
     return;

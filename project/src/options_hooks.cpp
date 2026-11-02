@@ -217,6 +217,8 @@ class GuestText {
           // Only places that still hold the text (the game may have freed or
           // reused the memory since the search).
           std::erase_if(found, [&](uint32_t a) {
+            MEMORY_BASIC_INFORMATION mbi;
+            if (!VirtualQuery(base + a, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT) return true;
             return std::none_of(patterns.begin(), patterns.end(), [&](const std::string& p) {
               return std::memcmp(base + a, p.data(), p.size()) == 0;
             });

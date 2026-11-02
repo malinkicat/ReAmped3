@@ -49,6 +49,7 @@ wait_game() {
     # The game appends one command a line: take the file (new ones go to a
     # fresh one) and carry them out in order.
     if [ -f media_command.txt ] && mv -f media_command.txt media_command.work 2>/dev/null; then
+      sleep 0.2  # a write the game had already begun lands in the taken file first
       while IFS= read -r cmd || [ -n "$cmd" ]; do
       cmd=${cmd%$'\r'}
       [ -n "$playing" ] && case "$cmd" in
@@ -59,7 +60,7 @@ wait_game() {
       case "$cmd" in volume\ *) v=${cmd#volume }; p=${playing:-$paused_player}
         [ -n "$p" ] && q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
       esac
-      [ "$cmd" = play ] && [ -n "$paused_player" ] && { q "$paused_player" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; paused_player=""; }
+      [ "$cmd" = play ] && [ -n "$paused_player" ] && { q "$paused_player" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$paused_player; paused_player=""; }
       done < media_command.work
       rm -f media_command.work
     fi

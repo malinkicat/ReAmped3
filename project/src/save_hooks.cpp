@@ -177,9 +177,10 @@ bool Amped3_WillSaveOnQuit() {
 }
 
 void Amped3_SaveAndQuit() {
-  g_save_and_quit = true;
-  // If the game's thread doesn't come round (stuck loading), quit anyway.
+  // If the game's thread doesn't come round (stuck loading), quit anyway. The
+  // request's number first: a failed save (which bumps it) cancels this one.
   const int request = ++g_quit_request;
+  g_save_and_quit = true;
   std::thread([request] {
     std::this_thread::sleep_for(std::chrono::seconds(5));
     if (g_quit_request != request) return;  // the save failed: staying
