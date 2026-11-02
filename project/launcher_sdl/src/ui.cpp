@@ -677,6 +677,11 @@ void HandleVendor(App& a, Act act) {
 // ---- launching ---------------------------------------------------------
 
 void Launch(App& a) {
+  if (!sys::CpuHasAvx2()) {
+    a.status = "This PC's processor doesn't have AVX2, which ReAmped 3 needs (most CPUs from 2013 on do)";
+    a.status_error = true;
+    return;
+  }
   if (!RideEnabled(FolderValid(a))) {
     a.status = "Choose your Amped 3 folder";
     a.status_error = true;

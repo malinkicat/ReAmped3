@@ -4,6 +4,8 @@
 #include <shellapi.h>
 #include <winhttp.h>
 
+#include <intrin.h>
+
 #include <algorithm>
 #include <cstdio>
 
@@ -342,6 +344,18 @@ bool ClaimSingleInstance() {
     return false;
   }
   return true;
+}
+
+bool CpuHasAvx2() {
+  int info[4];
+  __cpuid(info, 0);
+  if (info[0] < 7) return false;
+  __cpuid(info, 1);
+  const bool osxsave = info[2] & (1 << 27), avx = info[2] & (1 << 28);
+  // The OS saves the AVX registers (XCR0 bits 1 and 2).
+  if (!osxsave || !avx || (_xgetbv(0) & 6) != 6) return false;
+  __cpuidex(info, 7, 0);
+  return info[1] & (1 << 5);
 }
 
 void ReleaseSingleInstance() {

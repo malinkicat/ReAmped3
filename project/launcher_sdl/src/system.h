@@ -90,6 +90,8 @@ void AttachParentConsole();
 // One copy at a time: false if the game (or another launcher) is already
 // running, after bringing its window to the front.
 bool ClaimSingleInstance();
+// The game is built for x64 with AVX2: without it, it stops before it can log.
+bool CpuHasAvx2();
 // After RIDE, while the launcher finishes the sharp UI pack without a window:
 // a new launcher may start.
 void ReleaseSingleInstance();
