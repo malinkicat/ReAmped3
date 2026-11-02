@@ -103,7 +103,20 @@ void SaveSetting(const std::string& key, const std::string& value) {
     out += line + "\r\n";
   }
   if (!found) out += key + "=" + value + "\r\n";
-  std::ofstream(path, std::ios::binary | std::ios::trunc) << out;
+  // A temporary file swapped in: an interrupted write keeps the old settings.
+  auto temp = path;
+  temp += ".tmp";
+  {
+    std::ofstream file(temp, std::ios::binary | std::ios::trunc);
+    file << out;
+    if (!file.flush()) {
+      REXLOG_WARN("Amped3: could not save {} to settings.ini", key);
+      return;
+    }
+  }
+  std::error_code ec;
+  std::filesystem::rename(temp, path, ec);
+  if (ec) REXLOG_WARN("Amped3: could not save {} to settings.ini ({})", key, ec.message());
 }
 
 std::string Flag(const char* name) { return rex::cvar::GetFlagByName(name); }

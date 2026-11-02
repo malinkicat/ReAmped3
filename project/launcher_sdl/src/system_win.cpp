@@ -120,11 +120,18 @@ bool ReadFile(const std::string& path, std::string& out) {
   return true;
 }
 
+// Written to a temporary file next to it, then swapped in: an interrupted or
+// failed write leaves the old file whole.
 bool WriteFile(const std::string& path, const std::string& data) {
-  FILE* f = _wfopen(Wide(path).c_str(), L"wb");
+  const std::wstring target = Wide(path), temp = target + L".tmp";
+  FILE* f = _wfopen(temp.c_str(), L"wb");
   if (!f) return false;
   bool ok = fwrite(data.data(), 1, data.size(), f) == data.size();
-  return fclose(f) == 0 && ok;
+  ok = fflush(f) == 0 && ok;
+  ok = fclose(f) == 0 && ok;
+  if (ok) ok = MoveFileExW(temp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+  if (!ok) _wremove(temp.c_str());
+  return ok;
 }
 
 bool ListFiles(const std::string& dir, std::vector<std::string>& out) {

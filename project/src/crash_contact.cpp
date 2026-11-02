@@ -45,9 +45,12 @@ void Store32(uint8_t* base, uint32_t address, uint32_t value) {
 }
 
 // The counter at rider+offset went from `before` to before + 1 in this step:
-// make that the step's length in 1/30 s (whole ones; the rest carried).
+// make that the step's length in 1/30 s (whole ones; the rest carried). The
+// rest is kept while the counter holds (the feature count survives short gaps
+// in contact) and dropped when it's reset.
 void Scale(uint8_t* base, uint32_t rider, uint32_t offset, uint32_t before, float& fraction) {
   const uint32_t after = Load32(base, rider + offset);
+  if (after == before) return;
   if (after != before + 1) {
     fraction = 0.0f;
     return;

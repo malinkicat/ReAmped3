@@ -360,7 +360,14 @@ std::string MusicDir(const App& a) {
 std::pair<std::string, std::string> Explain(App& a) {
   switch (a.focus) {
     case Item::GameFolder: {
-      if (!GameFolderValid(a.st.game_path)) return {"GAME FOLDER", "Choose the folder that holds default.xex (Browse)."};
+      if (!GameFolderValid(a.st.game_path)) {
+        if (!TrimPath(a.st.game_path).empty() && sys::FileExists(JoinPath(TrimPath(a.st.game_path), "default.xex"))) {
+          return {"GAME FOLDER", "This folder has default.xex but not the rest of the game (" +
+                                     MissingGameData(a.st.game_path) +
+                                     " is missing): extract the whole disc again and choose that folder."};
+        }
+        return {"GAME FOLDER", "Choose the folder that holds default.xex (Browse)."};
+      }
       if (a.version_path != a.st.game_path) {
         a.version_path = a.st.game_path;
         a.version_tested = IsTestedGameVersion(a.st.game_path);
@@ -474,10 +481,16 @@ void Step(const std::vector<T>& list, T& value, int delta, bool wrap) {
 
 bool FolderValid(const App& a) { return GameFolderValid(a.st.game_path); }
 
-void SaveSettings(App& a) {
+bool SaveSettings(App& a) {
   int w = 0, h = 0;
   if (a.window && !a.deck && SDL_GetWindowSize(a.window, &w, &h) && a.window_resized) a.st.launcher_height = h;
-  sys::WriteFile(a.dist_dir + "settings.ini", FormatSettings(a.st));
+  return sys::WriteFile(a.dist_dir + "settings.ini", FormatSettings(a.st));
+}
+
+// The Save button: says whether it worked (e.g. a read-only install folder).
+void SaveSettingsAndSay(App& a) {
+  a.status_error = !SaveSettings(a);
+  a.status = a.status_error ? "Could not save settings.ini (is the folder read-only?)" : "Settings saved";
 }
 
 // ---- folder picker -----------------------------------------------------
@@ -734,7 +747,14 @@ void PollLaunch(App& a) {
   uint64_t now = SDL_GetTicks();
   if (now < a.next_poll) return;
   a.next_poll = now + 100;
-  if (sys::BringGameWindowToFront(a.game) || sys::ProcessExited(a.game) || now > a.launch_deadline) a.quit = true;
+  if (sys::BringGameWindowToFront(a.game) || now > a.launch_deadline) {
+    a.quit = true;
+  } else if (sys::ProcessExited(a.game)) {
+    // Closed before its window appeared: say so instead of vanishing.
+    a.launching = false;
+    a.status = "The game closed while starting. Details: amped3.log in " + TrimPath(a.dist_dir);
+    a.status_error = true;
+  }
 }
 
 // ---- input -------------------------------------------------------------
@@ -809,9 +829,7 @@ void Activate(App& a) {
       a.status_error = false;
       break;
     case Item::Save:
-      SaveSettings(a);
-      a.status = "Settings saved";
-      a.status_error = false;
+      SaveSettingsAndSay(a);
       break;
     case Item::Music: if (a.st.music == "mine") OpenPicker(a, true); break;
     case Item::Quit: SaveSettings(a); a.quit = true; break;
@@ -1021,7 +1039,11 @@ void HandleEvent(App& a, const SDL_Event& e) {
   switch (e.type) {
     case SDL_EVENT_WINDOW_RESIZED: if (!a.deck) a.window_resized = true; break;
     case SDL_EVENT_QUIT:
-    case SDL_EVENT_WINDOW_CLOSE_REQUESTED: a.quit = true; break;
+    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+      // Closing the window keeps the settings, as Quit does.
+      if (!a.launching) SaveSettings(a);
+      a.quit = true;
+      break;
     case SDL_EVENT_GAMEPAD_ADDED:
       if (SDL_Gamepad* g = SDL_OpenGamepad(e.gdevice.which)) a.pads.push_back(g);
       a.pad_hints = true;
@@ -1568,9 +1590,7 @@ void DrawMain(App& a) {
     if (Hover(a, save)) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     if (Clicked(a, save)) {
       a.focus = Item::Save;
-      SaveSettings(a);
-      a.status = "Settings saved";
-      a.status_error = false;
+      SaveSettingsAndSay(a);
     }
     // The Steam Deck: its recommended settings in one press.
     float rec_w = 0;

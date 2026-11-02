@@ -382,7 +382,11 @@ void Folders() {
   Check(!RideEnabled(GameFolderValid(dir)), "RIDE disabled without default.xex");
   Check(AutoDetectGameDir(dist).empty(), "no auto-detect without default.xex");
   sys::WriteFile(JoinPath(dir, "default.xex"), "x");
-  Check(GameFolderValid(dir), "folder with default.xex is valid");
+  Check(!GameFolderValid(dir), "folder with only default.xex (part-extracted) is not valid");
+  CheckEq(MissingGameData(dir), std::string("resources.dir"), "the first missing file is named");
+  for (const char* file : {"resources.dir", "loadingscreen.res"}) sys::WriteFile(JoinPath(dir, file), "x");
+  for (const char* sub : {"GuiPackages", "audio", "diesel"}) std::filesystem::create_directories(game / sub, ec);
+  Check(GameFolderValid(dir), "folder with default.xex and the game's data is valid");
   Check(RideEnabled(GameFolderValid(dir)), "RIDE enabled with default.xex");
   CheckEq(AutoDetectGameDir(dist), dir, "auto-detect the game folder next to the launcher");
   std::filesystem::remove_all(base, ec);

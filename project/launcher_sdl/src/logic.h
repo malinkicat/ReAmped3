@@ -229,7 +229,9 @@ bool IsNvidiaRtx(unsigned vendor_id, const std::string& description);
 // without it SMAA.
 std::string UsableAA(const std::string& aa, bool dlss_installed);
 
-// A game folder is one that holds default.xex.
+// The first of the game's key files/folders missing from path ("" = none).
+std::string MissingGameData(const std::string& path);
+// A game folder holds default.xex and the rest of the game's data.
 bool GameFolderValid(const std::string& path);
 // The folder's default.xex is the USA (NTSC-U) one ReAmped 3 is built from
 // and tested with (other versions: untested).

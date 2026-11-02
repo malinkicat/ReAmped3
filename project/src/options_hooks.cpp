@@ -211,9 +211,16 @@ class GuestText {
         searching_ = true;
         std::vector<std::string> patterns{Utf16Be(initial_)};
         if (last_ != initial_) patterns.push_back(last);
-        FindGuestAllInBackground(base, std::move(patterns), [this, base](std::vector<uint32_t> found) {
+        FindGuestAllInBackground(base, patterns, [this, base, patterns](std::vector<uint32_t> found) {
           std::lock_guard lock(g_text_mutex);
           searching_ = false;
+          // Only places that still hold the text (the game may have freed or
+          // reused the memory since the search).
+          std::erase_if(found, [&](uint32_t a) {
+            return std::none_of(patterns.begin(), patterns.end(), [&](const std::string& p) {
+              return std::memcmp(base + a, p.data(), p.size()) == 0;
+            });
+          });
           for (uint32_t a : found) AddAnchor(a);
           if (found.empty() || Valid(base)) return;
           addresses_ = std::move(found);

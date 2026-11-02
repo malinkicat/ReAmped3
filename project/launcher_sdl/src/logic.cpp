@@ -586,7 +586,8 @@ std::string BuildGameArgs(const Settings& s, const std::string& dist_dir, const 
   if (s.reamped_logo) args += " --title_logo=true";
   // Always said: the game on its own skips them.
   args += std::string(" --skip_intro=") + (s.skip_intro ? "true" : "false");
-  if (!s.music_dir.empty() && s.music == "mine") args += " --user_music_dir=\"" + s.music_dir + "\"";
+  // Always (the source can be switched to your music in the game's menu).
+  if (!s.music_dir.empty()) args += " --user_music_dir=\"" + s.music_dir + "\"";
   if (!s.pad_map.empty()) args += " --pad_button_map=" + s.pad_map;
   for (const auto& [id, keys] : s.keys) args += " --keybind_" + id + "=" + (keys.empty() ? "\"\"" : keys);
   // Anisotropic filtering: 16x (free at 60 on the Deck); 8x on the Deck above
@@ -670,9 +671,22 @@ std::string WineHomeDir(const std::string& home_env, const std::string& user_env
   return "Z:\\";
 }
 
+// A few of the disc's files the game can't start without: a folder with only
+// default.xex (a part-extracted disc) fails these.
+std::string MissingGameData(const std::string& path) {
+  const std::string p = TrimPath(path);
+  for (const char* file : {"resources.dir", "loadingscreen.res"}) {
+    if (!sys::FileExists(JoinPath(p, file))) return file;
+  }
+  for (const char* dir : {"GuiPackages", "audio", "diesel"}) {
+    if (!sys::DirExists(JoinPath(p, dir))) return dir;
+  }
+  return "";
+}
+
 bool GameFolderValid(const std::string& path) {
   std::string p = TrimPath(path);
-  return !p.empty() && sys::FileExists(JoinPath(p, "default.xex"));
+  return !p.empty() && sys::FileExists(JoinPath(p, "default.xex")) && MissingGameData(p).empty();
 }
 
 bool IsTestedGameVersion(const std::string& path) {
