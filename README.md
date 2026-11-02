@@ -1,20 +1,14 @@
 # ReAmped 3
 
-Amped 3 (Xbox 360, 2005) running natively on Windows 11 and the Steam Deck.
+A PC port of Amped 3 (Xbox 360, 2005) for Windows 11 and the Steam Deck.
 
-This one is all about performance. We wanted it running fast and smooth on PC and near-locked at 60 on the Steam Deck, while still looking and playing like the original:
+Performance has been the main focus. On an RTX 2080 Ti with a Ryzen 9 3900X it does 144 FPS at 4K in one of the less performant areas of the game, and on the Steam Deck it's near locked at 60 in the same spot. You can set any frame rate from the original 30 up to unlocked and the game still runs at the right speed. More on that under [Performance](#performance).
 
-- 144 FPS at 4K on an RTX 2080 Ti with a Ryzen 9 3900X, in one of the less performant areas of the game.
-- A near-locked 60 FPS on the Steam Deck in the same area (1% low 59), full 1280x800 screen.
-- Any frame rate you want, from the original 30 up to unlocked, and the game still runs at the right speed.
+It's a static recompilation, not an emulator. The game's PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built into a normal Windows program, running on our own modified ReXGlue runtime. No game files are included, so you'll need your own copy.
 
-The numbers and what we did to get them are under [Performance](#performance).
+AI was used to help make this, for writing and reviewing code, research and testing. It's all been tested on a real PC and Steam Deck.
 
-It's a static recompilation: the game's PowerPC code is translated to x64 C++ with [ReXGlue](https://github.com/rexglue) and built as a normal Windows program, running on our modified ReXGlue runtime (Direct3D 12). It's not an emulator, and no game files are included, so you need your own copy of the game.
-
-Heads up: we used AI as part of this project, to help write and review code, dig through the game, and run the testing and benchmarks. Everything here was tested on a real PC and a Steam Deck.
-
-Status: playable from start through the story, menus, rider creation, the open mountain and events. We've put hours of real play into it on PC and the Steam Deck, plus long automated soak runs on both, and there are no known crashes.
+You can play through the story, make riders, ride the open mountain and do events. It's had hours of real play on PC and Steam Deck plus long automated soak runs, and there are no known crashes.
 
 ## Installing
 
