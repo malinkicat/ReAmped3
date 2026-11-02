@@ -35,6 +35,13 @@ if '--yoff' in sys.argv:
 if h != 720 and '--yoff' not in sys.argv:
     # A 16:9 picture stretched to the screen (e.g. 1280x800): sample as 720 rows.
     rows = [rows[min(h - 1, int(y * h / 720))] for y in range(720)]
+if w != 1280:
+    # Another width: the centred 16:9 area (a bigger window, or ultrawide,
+    # where the menus stay 16:9 in the middle) sampled as 1280 columns.
+    fw = min(w, len(rows) * 16 // 9 if h == 720 or '--yoff' in sys.argv else h * 16 // 9)
+    x0 = (w - fw) // 2
+    cols = [min(w - 1, x0 + x * fw // 1280) for x in range(1280)]
+    rows = [bytearray(b for c in cols for b in r[c * bpp:c * bpp + bpp]) for r in rows]
 if '--hint' in sys.argv:
     # The hint box is a flat neutral grey (~203,202,204); snow is bluer or brighter.
     grey = 0

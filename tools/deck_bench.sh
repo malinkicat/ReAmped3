@@ -57,7 +57,18 @@ if [ "$label" = explore ]; then
   echo "exploring: tools/deck.sh pad ... / tools/deck.sh shot NAME; then tools/deck_bench.sh restore"
   exit 0
 fi
-trap restore_save EXIT
+# Keep the screen on only while benching (the user's own idle-off setting,
+# 10 minutes, protects the OLED otherwise): wake it (kscreen-doctor --dpms on)
+# and a user-level kde-inhibit, ended on exit.
+inhibit_on() {
+  "${SSH[@]}" 'p=$(pgrep -u deck -x plasmashell | head -1); for v in $(tr "\0" "\n" < /proc/$p/environ | grep -E "^(DISPLAY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR)="); do export "$v"; done; kscreen-doctor --dpms on >/dev/null 2>&1; setsid nohup kde-inhibit --screenSaver --power sleep 1800 >/dev/null 2>&1 & echo $! > ReAmped3/bench_inhibit.pid'
+}
+inhibit_off() {
+  "${SSH[@]}" 'p=$(cat ReAmped3/bench_inhibit.pid 2>/dev/null) && kill -- -$p 2>/dev/null; kill $p 2>/dev/null; rm -f ReAmped3/bench_inhibit.pid'
+}
+on_exit() { inhibit_off; restore_save; }
+inhibit_on
+trap on_exit EXIT
 "${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt ReAmped3/cpu_profile.csv"
 tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true "$@" >/dev/null || exit 1
 
@@ -76,7 +87,11 @@ if [ "$BENCH_ROUTE" = openworld ]; then
     if python3 tools/is_screen.py $S/bench_shot.png map; then
       # Stand at the top for OW_STAND s (10) first: the view over the park is
       # the heaviest part (12-14k draws a frame) and is inside the measurement.
-      sleep 1; pad "up 2000"; sleep 3.5; pad a; sleep 12
+      # BENCH_PROFILE_DROP=N: an N s CPU profile from the drop itself (the
+      # load and the ride's first seconds), instead of the stand's.
+      sleep 1; pad "up 2000"; sleep 3.5
+      if [ -n "$BENCH_PROFILE_DROP" ]; then pad a "profile $BENCH_PROFILE_DROP"; else pad a; fi
+      sleep 12
       # BENCH_PROFILE: profile the stand (the script is only read between
       # steps, so not during the long stick step that follows).
       [ -n "$BENCH_PROFILE" ] && pad "profile 10"
@@ -131,7 +146,13 @@ fi
 ( sleep 2; shot && cp $S/bench_shot.png "$S/ride_$label.png" ) &
 # Linux per-thread CPU time over 10 s of riding (Wine's own threads included).
 ( sleep 12; "${SSH[@]}" 'pid=$(pgrep -f "^Z:.*amped3\.exe" | head -1); snap() { for t in /proc/$pid/task/*; do echo "$(cat $t/comm 2>/dev/null)|$(sed "s/.*) //" $t/stat 2>/dev/null | awk "{print \$12+\$13}")|${t##*/}"; done; }; snap > ReAmped3/.rt_a; sleep 10; snap > ReAmped3/.rt_b; awk -F"|" "NR==FNR{a[\$3]=\$2; next} {d=\$2-a[\$3]; if (d>5) printf \"%5.1f%% %s\n\", d/10, \$1}" ReAmped3/.rt_a ReAmped3/.rt_b | sort -rn; rm -f ReAmped3/.rt_a ReAmped3/.rt_b' > "$S/threads_$label.txt" 2>&1 ) &
-if [ -n "$BENCH_PROFILE" ]; then
+# BENCH_RIDE_HOOK: commands run 4 s into the ride (pad / shot available), e.g.
+# to look at the pause menus on the Deck; the numbers are then meaningless.
+if [ -n "$BENCH_RIDE_HOOK" ]; then sleep 4; eval "$BENCH_RIDE_HOOK"; fi
+if [ -n "$BENCH_PROFILE_DROP" ]; then
+  sleep $((secs + 4))
+  scp -q -i "$KEY" "$DECK_HOST:ReAmped3/cpu_profile.csv" "$S/cpu_profile_$label.csv" || echo "$label: no CPU profile" >&2
+elif [ -n "$BENCH_PROFILE" ]; then
   # BENCH_PROFILE=1: a 10 s CPU profile from 10 s into the ride -> $S/cpu_profile_<label>.csv
   sleep 10; [ "$BENCH_ROUTE" = openworld ] || pad "profile 10"; sleep $((secs - 6))
   scp -q -i "$KEY" "$DECK_HOST:ReAmped3/cpu_profile.csv" "$S/cpu_profile_$label.csv" || echo "$label: no CPU profile" >&2
@@ -145,7 +166,7 @@ fps=$(echo "$@" | grep -o -- '--framerate=[0-9]*' | cut -d= -f2)
 python3 - "$label" "$secs" "${fps:-60}" $S/swaptimes.csv $S/clocks_bench.csv <<'PY'
 import csv, sys, statistics as st
 label, secs, fps, path, clocks = sys.argv[1], float(sys.argv[2]), int(sys.argv[3]), sys.argv[4], sys.argv[5]
-rows = [(float(a), float(b)) for a, b in list(csv.reader(open(path)))[1:]]
+rows = [(float(a), float(b)) for a, b, *_ in list(csv.reader(open(path)))[1:]]
 end = rows[-1][0]
 ft = [f for t, f in rows if t > end - secs]
 s = sorted(ft, reverse=True)

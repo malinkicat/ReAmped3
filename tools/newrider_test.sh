@@ -4,7 +4,7 @@
 #   tools/newrider_test.sh label [game args...]
 cd "$(dirname "$0")/.." && . tools/env.sh
 label=$1; shift
-taskkill.exe /f /im amped3.exe >/dev/null 2>&1; sleep 1; rm -f run.log
+if tasklist.exe | grep -qi amped3; then echo "a game is already running; not starting"; exit 1; fi; rm -f run.log
 powershell.exe -NoProfile -Command "Start-Process -FilePath '$WINROOT\tools\run.cmd' -WindowStyle Hidden -ArgumentList '--scripted_input=true --headless=true --headless_keyboard_text=Rider --log_level=debug $*'" </dev/null >/dev/null 2>&1
 for i in $(seq 1 9); do sleep 2; tools/pad.sh a; done
 sleep 4; tools/pad.sh a; sleep 10

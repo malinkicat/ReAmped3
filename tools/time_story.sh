@@ -3,7 +3,7 @@
 # run (X) to the first position-triggered hint, with no other input; used to check
 # game speed at different frame rates: tools/time_story.sh [game args...]
 cd "$(dirname "$0")/.." && . tools/env.sh
-taskkill.exe /f /im amped3.exe >/dev/null 2>&1; sleep 2
+if tasklist.exe | grep -qi amped3; then echo "a game is already running; not starting"; exit 1; fi
 rmdir "$(amped3_user_dir)"/cache/Cache0/Temp 2>/dev/null
 rm -f run.log
 powershell.exe -NoProfile -Command "Start-Process -FilePath '$WINROOT\tools\run.cmd' -WindowStyle Hidden -ArgumentList '--scripted_input=true --headless=true --headless_keyboard_text=Rider --fps_log=true $*'" </dev/null >/dev/null 2>&1

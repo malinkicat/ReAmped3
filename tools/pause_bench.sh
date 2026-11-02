@@ -12,11 +12,11 @@ tools/quick_ride.sh --swap_times=true "$@" >/dev/null || { echo "$label: no ride
 sleep ${PAUSE_AFTER:-6}
 tools/pad.sh start
 sleep $((secs + 3))
-taskkill.exe /f /im amped3.exe >/dev/null 2>&1; sleep 1
+if tasklist.exe | grep -qi amped3; then echo "a game is already running; not starting"; exit 1; fi
 python3 - "$label" "$secs" <<'PY'
 import csv, sys, statistics as st
 label, secs = sys.argv[1], float(sys.argv[2])
-rows = [(float(a), float(b)) for a, b in list(csv.reader(open('build/swaptimes.csv')))[1:]]
+rows = [(float(a), float(b)) for a, b, *_ in list(csv.reader(open('build/swaptimes.csv')))[1:]]
 end = rows[-1][0]
 ft = [f for t, f in rows if end - secs < t]
 s = sorted(ft, reverse=True)

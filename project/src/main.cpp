@@ -22,6 +22,7 @@ REXCVAR_DEFINE_BOOL(voice_probe, false, "Debug", "Log calls into XAudio2 source-
 REXCVAR_DEFINE_BOOL(step_probe, false, "Debug", "Log how often code using a fixed 1/60 s step runs");
 REXCVAR_DEFINE_BOOL(clock_probe, false, "Debug", "Log how the game stopwatch reads advance (finding the simulation clock)");
 REXCVAR_DEFINE_BOOL(scripted_input, false, "Debug", "Play back input_script.txt next to the executable as controller presses");
+REXCVAR_DEFINE_BOOL(single_instance, true, "UI", "Only one game at a time: a second start brings the running one forward");
 
 #include "amped3_app.h"
 

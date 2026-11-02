@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <deque>
 #include <fstream>
 #include <string>
 #include <string_view>
@@ -33,6 +34,12 @@
 
 #include "fonts.h"
 #include "frame_graph.h"
+#include "achievement_toast.h"
+#include "game_menu.h"
+#include "boot_screen.h"
+#include "ui_patch.h"
+#include "now_playing.h"
+#include "save_backup.h"
 #include "quit_prompt.h"
 #include "pix_capture.h"
 #include "hang_watch.h"
@@ -41,9 +48,11 @@
 REXCVAR_DECLARE(bool, dump_image);
 REXCVAR_DECLARE(int32_t, framerate);
 REXCVAR_DECLARE(bool, scripted_input);
+REXCVAR_DECLARE(bool, single_instance);
 REXCVAR_DECLARE(int32_t, hang_watch);
 REXCVAR_DECLARE(bool, show_fps);
 REXCVAR_DECLARE(bool, pix_gpu_capture);
+REXCVAR_DECLARE(bool, boot_screen);
 
 // Sets a default for a flag unless the command line already names it. GPU plugin
 // flags register only when the plugin DLL loads, after OnPreSetup, so those fall
@@ -73,33 +82,75 @@ class OnDemandToastDialog : public rex::ui::AchievementToastDialog {
                       rex::ui::ImmediateDrawer* immediate_drawer, rex::Runtime* runtime)
       : AchievementToastDialog(drawer, immediate_drawer, runtime), app_context_(app_context) {
     imgui_drawer()->RemoveDialog(this);  // The base constructor attached it.
+    // Progress cards (achievement_progress.cpp), queued after any unlocks.
+    amped3::achievement_toast::SetProgressSink([this](std::string name, std::string detail, float fraction) {
+      app_context_.CallInUIThreadDeferred([this, name = std::move(name), detail = std::move(detail), fraction]() {
+        queue_.push_back({name, 0, true, detail, fraction});
+        Started();
+      });
+    });
   }
 
+  // Drawn in the game's style (achievement_toast.cpp) instead of the stock
+  // toast, one after another for 4.5 s each.
   void Push(const rex::system::AchievementEvent& event) override {
-    AchievementToastDialog::Push(event);
-    app_context_.CallInUIThreadDeferred([this]() {
-      // Toasts are shown one after another for 4.5 s each.
-      const auto now = std::chrono::steady_clock::now();
-      visible_until_ = std::max(visible_until_, now) + std::chrono::milliseconds(4700);
-      if (!attached_) {
-        imgui_drawer()->AddDialog(this);
-        attached_ = true;
-      }
+    app_context_.CallInUIThreadDeferred([this, info = event.achievement]() {
+      // Ahead of progress cards not yet shown (the front one may be showing).
+      auto at = queue_.begin();
+      if (at != queue_.end()) ++at;
+      while (at != queue_.end() && !at->progress) ++at;
+      queue_.insert(at, {info.label, info.gamerscore, false, {}, 0.0f});
+      Started();
     });
   }
 
  protected:
+  // After adding to the queue: start showing if it was empty.
+  void Started() {
+    if (queue_.size() == 1) {
+      shown_since_ = std::chrono::steady_clock::now();
+      if (!queue_.front().progress) amped3::achievement_toast::PlayChime();
+    }
+    if (!attached_) {
+      imgui_drawer()->AddDialog(this);
+      attached_ = true;
+    }
+  }
+
   void OnDraw(ImGuiIO& io) override {
-    AchievementToastDialog::OnDraw(io);
-    if (attached_ && std::chrono::steady_clock::now() > visible_until_) {
+    const auto now = std::chrono::steady_clock::now();
+    float t = std::chrono::duration<float>(now - shown_since_).count();
+    if (!queue_.empty() &&
+        t > (queue_.front().progress ? amped3::achievement_toast::kProgressSeconds : 4.5f)) {
+      queue_.pop_front();
+      shown_since_ = now;
+      t = 0.0f;
+      if (!queue_.empty() && !queue_.front().progress) amped3::achievement_toast::PlayChime();
+    }
+    if (!queue_.empty()) {
+      const Toast& toast = queue_.front();
+      if (toast.progress) {
+        amped3::achievement_toast::DrawProgress(io, toast.name, toast.detail, toast.fraction, t);
+      } else {
+        amped3::achievement_toast::Draw(io, toast.name, toast.gamerscore, t);
+      }
+    } else if (attached_) {
       imgui_drawer()->RemoveDialog(this);
       attached_ = false;
     }
   }
 
  private:
+  struct Toast {
+    std::string name;
+    uint32_t gamerscore;
+    bool progress;
+    std::string detail;  // progress: "137 / 200 objects"
+    float fraction;
+  };
   rex::ui::WindowedAppContext& app_context_;
-  std::chrono::steady_clock::time_point visible_until_{};
+  std::deque<Toast> queue_;
+  std::chrono::steady_clock::time_point shown_since_{};
   bool attached_ = false;
 };
 
@@ -114,6 +165,20 @@ class Amped3App : public rex::ReXApp {
   }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
+    // One game at a time: a second start (a second launcher RIDE, a
+    // double-click) brings the running one forward instead of playing its
+    // menu music over it.
+    if (REXCVAR_GET(single_instance)) {
+      static HANDLE instance = CreateMutexW(nullptr, FALSE, L"Local\\ReAmped3.Game");
+      if (instance && GetLastError() == ERROR_ALREADY_EXISTS) {
+        if (HWND running = FindRunningGameWindow()) {
+          if (IsIconic(running)) ShowWindow(running, SW_RESTORE);
+          SetForegroundWindow(running);
+        }
+        ExitProcess(0);
+      }
+    }
+    amped3::ui_patch::Prepare();
     // Debug: load PIX's GPU capturer before the D3D12 device exists; the
     // scripted "pixcapture" command then captures the next frame.
     if (REXCVAR_GET(pix_gpu_capture)) {
@@ -125,20 +190,29 @@ class Amped3App : public rex::ReXApp {
     // Name prompts the game leaves empty (New Rider) start with this, so a
     // controller-only player can confirm with A (patch_sdk_keyboard_pad.py).
     SetDefaultPluginFlag("headless_keyboard_text", "Rider");
+    // The sharp UI pack's folder, with our loading screen (boot_screen.cpp)
+    // in it, or a folder with only the loading screen.
+    const std::string pack = amped3::ui_patch::SharpUiFolder();
+    if (const std::string textures = amped3::boot_screen::Prepare(pack); !textures.empty()) {
+      SetDefaultPluginFlag("texture_folder", textures.c_str());
+      SetDefaultPluginFlag("texture_replace_enabled", "true");
+      // Shown as soon as they're used during the boot screen (not the
+      // originals first); boot_screen.cpp sets it back after it.
+      if (REXCVAR_GET(boot_screen)) SetDefaultPluginFlag("texture_replace_async", "false");
+    }
     const int32_t fps = REXCVAR_GET(framerate);
     if (fps == 0 || fps > 60) {
       SetDefaultPluginFlag("vsync", "false");
       SetDefaultPluginFlag("d3d12_allow_variable_refresh_rate_and_tearing", "true");
       SetDefaultPluginFlag("clear_memory_page_state", "false");
     }
-    if (REXCVAR_GET(scripted_input)) {
-      config.input_factory = [](bool tool_mode) -> std::unique_ptr<rex::system::IInputSystem> {
-        auto input = rex::input::CreateDefaultInputSystem(tool_mode);
-        input->AddDriver(amped3::scripted_input::CreateDriver());
-        REXLOG_INFO("Amped3: scripted input driver added");
-        return input;
-      };
-    }
+    // The virtual pad: quick save's menu exit (scripted_input::Tap), and the
+    // test scripts with --scripted_input.
+    config.input_factory = [](bool tool_mode) -> std::unique_ptr<rex::system::IInputSystem> {
+      auto input = rex::input::CreateDefaultInputSystem(tool_mode);
+      input->AddDriver(amped3::scripted_input::CreateDriver());
+      return input;
+    };
   }
 
   void OnPostLoadXexImage() override {
@@ -166,6 +240,23 @@ class Amped3App : public rex::ReXApp {
 
   // Window title listing the frame rate, render scale and any other flags on the
   // command line (paths and window plumbing left out), to tell test runs apart.
+  // The running game's window ("ReAmped 3 | ..."), for a second start.
+  static HWND FindRunningGameWindow() {
+    HWND found = nullptr;
+    EnumWindows(
+        [](HWND hwnd, LPARAM param) -> BOOL {
+          wchar_t title[128] = {};
+          GetWindowTextW(hwnd, title, 127);
+          if (IsWindowVisible(hwnd) && wcsncmp(title, L"ReAmped 3 |", 11) == 0) {
+            *reinterpret_cast<HWND*>(param) = hwnd;
+            return FALSE;
+          }
+          return TRUE;
+        },
+        reinterpret_cast<LPARAM>(&found));
+    return found;
+  }
+
   static std::string SettingsTitle() {
     std::string title = "ReAmped 3 | " + std::to_string(REXCVAR_GET(framerate)) + " FPS";
     if (REXCVAR_GET(framerate) == 0) {
@@ -209,6 +300,17 @@ class Amped3App : public rex::ReXApp {
       window()->SetCursorVisibility(window()->IsFullscreen()
                                         ? rex::ui::Window::CursorVisibility::kHidden
                                         : rex::ui::Window::CursorVisibility::kAutoHidden);
+      if (window()->IsFullscreen()) {
+        // A hidden cursor only applies at the window's next cursor update,
+        // which (under Wine, e.g. Steam Deck Desktop Mode) waits for the
+        // pointer to move: hide it now, and put the pointer back where it is
+        // to make that update happen.
+        SetCursor(nullptr);
+        POINT pointer;
+        if (GetCursorPos(&pointer)) {
+          SetCursorPos(pointer.x, pointer.y);
+        }
+      }
     }
     if (REXCVAR_GET(hang_watch) > 0) {
       amped3::hang_watch::Start(runtime(), REXCVAR_GET(hang_watch));
@@ -219,7 +321,12 @@ class Amped3App : public rex::ReXApp {
 
   // Override virtual hooks for customization:
   // void OnPostInitLogging() override {}
-  // void OnLoadXexImage(std::string& xex_image) override {}
+  // Before the game starts (and reads its saves): a save restore chosen in the
+  // ReAmped 3 menu last time.
+  void OnLoadXexImage(std::string& xex_image) override {
+    (void)xex_image;
+    amped3::save_backup::ApplyScheduledRestore();
+  }
   void OnConfigureFonts(ImFontAtlas* atlas) override { amped3::fonts::Load(atlas); }
 
   void OnCreateDialogs(rex::ui::ImGuiDrawer*) override {
@@ -234,6 +341,13 @@ class Amped3App : public rex::ReXApp {
         window()->RequestClose();
       }
     });
+    amped3::now_playing::Initialize(app_context(), imgui_drawer());
+    amped3::game_menu::Initialize(app_context(), imgui_drawer());
+    amped3::save_backup::Start();
+    // Your music / the other player without a controller (the D-pad does it on a pad).
+    rex::ui::RegisterBind("bind_next_track", "F9", "Next track (your music)", [] { amped3::now_playing::Skip(1); });
+    rex::ui::RegisterBind("bind_previous_track", "F8", "Previous track (your music)",
+                          [] { amped3::now_playing::Skip(-1); });
     rex::ui::RegisterBind("bind_quit_prompt", "Escape", "Quit prompt",
                           [] { amped3::quit_prompt::Open(); });
     rex::ui::RegisterBind("bind_frame_graph", "F10", "Toggle the frame-time graph", [this] {

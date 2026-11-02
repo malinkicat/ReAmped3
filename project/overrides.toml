@@ -111,6 +111,13 @@ address = 0x8228D4A0
 name = "Amped3_BeforeThreadJoin"
 registers = ["r30"]
 
+# Start-up: jump past the 2K and Indie Built logo movies (src/intro_skip.cpp).
+[[midasm_hook]]
+address = 0x8215A8B4
+name = "Amped3_SkipIntroMovies"
+registers = []
+jump_address_on_true = 0x8215A92C
+
 # Frame timing: the game's only VdSwap call (src/frame_stats.cpp).
 [[midasm_hook]]
 address = 0x825AB7F4
@@ -284,6 +291,13 @@ registers = []
 address = 0x82226818
 name = "Amped3_Step_82226818"
 registers = []
+
+# Experiment (rider_probe.cpp, --ground_push_dt): the rider ground contact
+# scales the penetration depth by a fixed 1/30 (f13) each frame.
+[[midasm_hook]]
+address = 0x82226820
+name = "Amped3_GroundPushStep"
+registers = ["f13", "f30"]
 
 [[midasm_hook]]
 address = 0x82241768
@@ -649,6 +663,9 @@ address = 0x8222DB18
 name = "Amped3_ClothJob"
 registers = ["r3"]
 
+
+
+
 # Native zlib inflate_fast (src/native_inflate.cpp, --native_inflate).
 [[midasm_hook]]
 address = 0x822008B8
@@ -684,3 +701,25 @@ registers = []
 address = 0x821CDA28
 name = "Amped3_CameraFarClipRead"
 registers = ["r31"]
+
+# Frame-rate dependent minigames (src/minigame_fps_fix.cpp; found by Amped 3
+# Revamped): sled turning on the spot, sled crash scoring, the stuck tip.
+[[midasm_hook]]
+address = 0x82259090
+name = "Amped3_SledWaitDt"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x82259164
+name = "Amped3_FixSledWaitTurn"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x823AD818
+name = "Amped3_FixSledCrashHit"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x822136CC
+name = "Amped3_FixStuckTip"
+registers = ["f1", "f6", "r11"]

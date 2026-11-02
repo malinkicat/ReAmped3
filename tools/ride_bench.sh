@@ -9,14 +9,14 @@
 cd "$(dirname "$0")/.." && . tools/env.sh
 label=$1; shift
 secs=${BENCH_SECONDS:-40}
-rm -f build/swaptimes.csv
+rm -f ${AMPED3_BUILD:-build}/swaptimes.csv
 tools/quick_ride.sh --swap_times=true "$@" >/dev/null || { echo "$label: no ride"; exit 1; }
 sleep $((secs + 2)); taskkill.exe /f /im amped3.exe >/dev/null 2>&1; sleep 1
 fps=$(echo "$@" | grep -o -- '--framerate=[0-9]*' | cut -d= -f2)
-python3 - "$label" "$secs" "${fps:-60}" <<'PY'
+python3 - "$label" "$secs" "${fps:-60}" "${AMPED3_BUILD:-build}" <<'PY'
 import csv, sys, statistics as st
 label, secs, fps = sys.argv[1], float(sys.argv[2]), int(sys.argv[3])
-rows = [(float(a), float(b)) for a, b in list(csv.reader(open('build/swaptimes.csv')))[1:]]
+rows = [(float(a), float(b)) for a, b, *_ in list(csv.reader(open(sys.argv[4] + '/swaptimes.csv')))[1:]]
 end = rows[-1][0]
 ft = [f for t, f in rows if t > end - secs]
 s = sorted(ft, reverse=True)

@@ -91,6 +91,43 @@ wait_game() {
   done
   rm -f .threads_a .threads_b
 ) > threads.log 2>/dev/null &
+# Another music player in place of the game's soundtrack (--user_music=system,
+# the launcher's "Spotify / other player"): the game runs under Proton and
+# can't see Linux players, so pass the playing MPRIS player (Spotify first)
+# on once a second as media_session.txt ("playing" or "stopped", then "Artist -
+# Title"), and carry out the game's next / previous requests (media_command.txt).
+(
+  wait_game || exit 0
+  q() { gdbus call --session --dest "$1" --object-path /org/mpris/MediaPlayer2 "${@:2}" 2>/dev/null; }
+  while pgrep -f '[a]mped3\.exe' >/dev/null; do
+    players=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+      --method org.freedesktop.DBus.ListNames 2>/dev/null | grep -o "org\.mpris\.MediaPlayer2\.[A-Za-z0-9_.-]*" | sort -r)
+    playing=""
+    for p in $(echo "$players" | grep -i spotify) $(echo "$players" | grep -vi spotify); do
+      q "$p" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus | grep -q Playing && { playing=$p; break; }
+    done
+    if [ -f media_command.txt ]; then
+      cmd=$(tr -d '\r' < media_command.txt); rm -f media_command.txt  # the game may write CR LF
+      [ -n "$playing" ] && case "$cmd" in next) q "$playing" --method org.mpris.MediaPlayer2.Player.Next >/dev/null;; previous) q "$playing" --method org.mpris.MediaPlayer2.Player.Previous >/dev/null;; pause) q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=$playing; playing="";; esac
+      # "Your music volume" changed in game: the player's own volume (0-100).
+      case "$cmd" in volume\ *) v=${cmd#volume }; p=${playing:-$paused_player}
+        [ -n "$p" ] && q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null;; esac
+      # The game's cutscene music is over: resume the player we paused.
+      [ "$cmd" = play ] && [ -n "$paused_player" ] && { q "$paused_player" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; paused_player=""; }
+    fi
+    if [ -n "$playing" ]; then
+      m=$(q "$playing" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata)
+      title=$(echo "$m" | sed -n -e "s/.*'xesam:title': <'\([^']*\)'>.*/\1/p" -e "s/.*'xesam:title': <\"\([^\"]*\)\">.*/\1/p" | head -1)
+      artist=$(echo "$m" | sed -n -e "s/.*'xesam:artist': <\['\([^']*\)'.*/\1/p" -e "s/.*'xesam:artist': <\[\"\([^\"]*\)\".*/\1/p" | head -1)
+      printf 'playing\n%s\n' "${artist:+$artist - }$title" > .media_session.tmp
+    else
+      printf 'stopped\n\n' > .media_session.tmp
+    fi
+    mv -f .media_session.tmp media_session.txt
+    sleep 1
+  done
+  rm -f media_session.txt media_command.txt
+) >/dev/null 2>&1 &
 # Pad input even when the window isn't focused (gamescope/KWin don't always
 # give a Proton window focus; SDL drops pad events without it).
 export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
@@ -129,7 +166,7 @@ case "$1" in
     ;;
   deploy)
     pkg=dist/Amped3-recomp-test
-    powershell.exe -NoProfile -File "$WINROOT\\tools\\package.ps1" >/dev/null || exit 1
+    powershell.exe -NoProfile -File "$WINROOT\\tools\\package.ps1" ${DECK_SDK_DIR:+-SdkDir $DECK_SDK_DIR} >/dev/null || exit 1
     "${SSH[@]}" "mkdir -p $DECK_DIR/game" || exit 1
     if ! "${SSH[@]}" "test -f $DECK_DIR/game/default.xex"; then
       src=$(wslpath "$(game_dir)")

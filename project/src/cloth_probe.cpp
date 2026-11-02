@@ -1,11 +1,11 @@
-// cloth_probe.cpp - Debug probe: the flapping clothes animation job
+// cloth_probe.cpp - Debug probe: the flapping clothes animation
 //
-// The job "FlappingClothes::UpdateAsync" (sub_8222DB18, r3 = job: [+4] and
-// [+8] point at the animation objects it drives, blending the "windy" and
-// "noWind" clips). With --cloth_dump=N, the scripted "clothdump" command
-// records N consecutive calls of the first job seen: 1 KB of each object
-// ([+4], [+8]) to cloth_dump.bin, to find a clock that advances per call
-// instead of per second (compare dumps at two frame rates).
+// "FlappingClothes::UpdateAsync" (sub_8222DB18) is a one-shot job on the
+// game's timed job queue: it runs once per rider and adds the "windy" and
+// "noWind" clips to the rider's animation mixer (job [+4], clip list at its
+// [+8]). With --cloth_dump=N, the scripted "clothdump" command samples 256 KB
+// around the clip list N times, 10 ms apart, to cloth_dump.bin. Used to show the cloth bones move at
+// the same speed at 30, 60 and 120 FPS.
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -18,13 +18,15 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <thread>
 
 REXCVAR_DEFINE_INT32(cloth_dump, 0, "Debug",
-                     "Calls of the flapping clothes job to dump on the scripted \"clothdump\" "
-                     "command (0 = off)");
+                     "Samples (10 ms apart) of the flapping clothes objects to dump on the "
+                     "scripted \"clothdump\" command (0 = off)");
 
 namespace {
 std::atomic<bool> g_requested{false};
+std::atomic<uint32_t> g_jobs{0}, g_job{0};
 
 uint32_t LoadBE32(const uint8_t* p) {
   return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | p[3];
@@ -33,51 +35,42 @@ uint32_t LoadBE32(const uint8_t* p) {
 
 namespace amped3::cloth_probe {
 void Request() {
-  g_requested = true;
-  REXLOG_INFO("ClothProbe: dump requested");
+  const uint32_t job = g_job.load();
+  const int samples = REXCVAR_GET(cloth_dump);
+  if (!job || samples <= 0 || g_requested.exchange(true)) return;
+  REXLOG_INFO("ClothProbe: sampling {:08X} ({} samples)", job, samples);
+  std::thread([job, samples] {
+    std::FILE* file = _wfopen((rex::filesystem::GetExecutableFolder() / "cloth_dump.bin").c_str(), L"wb");
+    if (!file) return;
+    auto* memory = REX_KERNEL_MEMORY();
+    const auto start = std::chrono::steady_clock::now();
+    // Record: f32 seconds, then 256 KB of memory from 128 KB below the clip
+    // list of the mixer the clips are added to (job [+4], its [+8]).
+    const auto* j = memory->TranslateVirtual<const uint8_t*>(job);
+    const uint32_t list = LoadBE32(memory->TranslateVirtual<const uint8_t*>(LoadBE32(j + 4)) + 8);
+    REXLOG_INFO("ClothProbe: clip list {:08X}", list);
+    const auto* window = memory->TranslateVirtual<const uint8_t*>(list - 0x20000);
+    for (int i = 0; i < samples; ++i) {
+      const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+      std::fwrite(&t, 4, 1, file);
+      std::fwrite(window, 1, 0x40000, file);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    std::fclose(file);
+    g_requested = false;
+    REXLOG_INFO("ClothProbe: wrote cloth_dump.bin");
+  }).detach();
 }
 }  // namespace amped3::cloth_probe
 
-// [[midasm_hook]] at 0x8222DB18, the flapping clothes job's entry.
+// [[midasm_hook]] at 0x8222DB18, the flapping clothes job's entry. It runs
+// each frame until the clips are in, then adds them to the rider's animation
+// and is done.
+// The clothdump request then samples the job object and its [+4], [+8]
+// objects every 5 ms from a host thread (cloth_dump samples), to compare
+// their clocks across a frame rate switch.
 void Amped3_ClothJob(PPCRegister& r3) {
-  static std::FILE* file = nullptr;
-  static uint32_t job = 0, calls = 0;
-  static std::chrono::steady_clock::time_point start;
-  if (!g_requested.load(std::memory_order_relaxed) || REXCVAR_GET(cloth_dump) <= 0) {
-    return;
-  }
-  if (!file) {
-    file = _wfopen((rex::filesystem::GetExecutableFolder() / "cloth_dump.bin").c_str(), L"wb");
-    job = r3.u32;
-    start = std::chrono::steady_clock::now();
-    if (!file) {
-      g_requested = false;
-      return;
-    }
-  }
-  if (r3.u32 != job) {
-    return;
-  }
-  auto* memory = REX_KERNEL_MEMORY();
-  const auto* j = memory->TranslateVirtual<const uint8_t*>(job);
-  // Record: f32 seconds since the first call, then [+4] and [+8], 1 KB each.
-  const float t =
-      std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-  std::fwrite(&t, 4, 1, file);
-  for (uint32_t field : {4u, 8u}) {
-    static uint8_t bytes[1024];
-    std::memset(bytes, 0, sizeof(bytes));
-    const uint32_t object = LoadBE32(j + field);
-    if (object) {
-      std::memcpy(bytes, memory->TranslateVirtual<const uint8_t*>(object), sizeof(bytes));
-    }
-    std::fwrite(bytes, 1, sizeof(bytes), file);
-  }
-  if (++calls >= uint32_t(REXCVAR_GET(cloth_dump))) {
-    std::fclose(file);
-    file = nullptr;
-    g_requested = false;
-    calls = 0;
-    REXLOG_INFO("ClothProbe: wrote cloth_dump.bin");
-  }
+  if (REXCVAR_GET(cloth_dump) <= 0) return;
+  g_jobs.fetch_add(1, std::memory_order_relaxed);
+  if (g_job.exchange(r3.u32) != r3.u32) REXLOG_INFO("ClothProbe: job runs (object {:08X})", r3.u32);
 }

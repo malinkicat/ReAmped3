@@ -34,6 +34,37 @@ def image_base(path):
     return struct.unpack_from('<Q', data, pe + 24 + 24)[0]  # PE32+ OptionalHeader.ImageBase
 
 
+def map_symbols():
+    # build/amped3.map (the exe has no PDB): public symbols by RVA, so guest
+    # functions show as sub_XXXXXXXX (the recompiled bodies are __imp__sub_*).
+    path = f'{ROOT}/build/amped3.map'
+    if not os.path.exists(path):
+        return []
+    syms, base = [], 0x140000000
+    for line in open(path, errors='ignore'):
+        parts = line.split()
+        if 'Preferred load address' in line:
+            base = int(parts[-1], 16)
+        elif len(parts) >= 3 and parts[0].startswith('0001:'):
+            try:
+                syms.append((int(parts[2], 16) - base, parts[1]))
+            except ValueError:
+                pass
+    return sorted(syms)
+
+
+import bisect
+EXE_SYMS = map_symbols()
+EXE_ADDRS = [a for a, _ in EXE_SYMS]
+
+
+def exe_symbol(rva):
+    i = bisect.bisect_right(EXE_ADDRS, rva) - 1
+    if i < 0:
+        return None
+    return EXE_SYMS[i][1].replace('__imp__', '')
+
+
 names = {}
 for module in {m for _, m, _, _, _ in rows}:
     path = f'{ROOT}/build/{module}'
@@ -49,7 +80,10 @@ for module in {m for _, m, _, _, _ in rows}:
                          text=True).stdout.split('\n\n')
     for rva, block in zip(rvas, out):
         lines = block.strip().splitlines()
-        func = lines[0] if lines and lines[0] != '??' else f'{module}+{rva:X}'
+        func = lines[0] if lines and lines[0] != '??' else None
+        if func is None and module.startswith('amped3') and EXE_SYMS:
+            func = exe_symbol(rva)
+        func = func or f'{module}+{rva:X}'
         names[(module, rva)] = f'{func} [{module}]' if not module.startswith('amped3') else func
 
 by_thread = collections.defaultdict(lambda: [collections.Counter(), collections.Counter()])

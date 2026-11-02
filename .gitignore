@@ -35,3 +35,5 @@ build_pgo/
 pgo/
 .superpowers/
 .claude/
+build_test/
+build_lto/

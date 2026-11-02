@@ -2,6 +2,8 @@
 
 #include "scripted_input.h"
 
+#include <rex/cvar.h>
+
 #include "cpu_profile.h"
 
 namespace amped3::rider_probe {
@@ -36,8 +38,14 @@ void OpenFromAnyThread();
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
+
+REXCVAR_DECLARE(bool, scripted_input);
+
+void Amped3_FindText(const std::string& text);  // options_hooks.cpp
+void Amped3_DumpMem(uint32_t address, uint32_t size);
 
 namespace amped3::scripted_input {
 namespace {
@@ -88,11 +96,78 @@ const std::pair<uint16_t, uint16_t> kPadKeys[] = {
 };
 constexpr uint16_t kKeyDown = 0x0001, kKeyUp = 0x0002;
 
+// "a", or "back+lb" (held together); 0 if a name isn't a button.
+uint16_t ButtonsNamed(const std::string& names) {
+  uint16_t buttons = 0;
+  size_t start = 0;
+  while (start <= names.size()) {
+    size_t end = names.find('+', start);
+    if (end == std::string::npos) end = names.size();
+    auto it = kButtons.find(names.substr(start, end - start));
+    if (it == kButtons.end()) return 0;
+    buttons |= it->second;
+    start = end + 1;
+  }
+  return buttons;
+}
+
+class ScriptedInputDriver;
+ScriptedInputDriver* g_driver = nullptr;
+
 class ScriptedInputDriver final : public rex::input::InputDriver {
  public:
   ScriptedInputDriver()
       : InputDriver(nullptr, 0),
-        script_path_(rex::filesystem::GetExecutableFolder() / "input_script.txt") {}
+        script_path_(rex::filesystem::GetExecutableFolder() / "input_script.txt") {
+    g_driver = this;
+  }
+  ~ScriptedInputDriver() override {
+    if (g_driver == this) g_driver = nullptr;
+  }
+
+  // The buttons held now (advancing the script), for the prompts and menus
+  // that read the controller themselves while game input is paused.
+  uint16_t HeldButtons() { return Update(); }
+
+  void Tap(uint16_t buttons, int count) {
+    std::lock_guard lock(mutex_);
+    for (int i = 0; i < count; ++i) {
+      Step press, gap;
+      press.buttons = buttons;
+      press.duration = std::chrono::milliseconds(80);
+      gap.duration = std::chrono::milliseconds(750);  // the next menu's fly-in between presses
+      steps_.push_back(press);
+      steps_.push_back(gap);
+    }
+  }
+
+  // Drops the queued presses and releases what's held.
+  void Cancel() {
+    std::lock_guard lock(mutex_);
+    steps_.clear();
+    step_started_ = false;
+    keystrokes_.clear();
+  }
+
+  bool Idle() {
+    std::lock_guard lock(mutex_);
+    return steps_.empty();
+  }
+
+  void TapStick(float x, float y, uint16_t buttons) {
+    std::lock_guard lock(mutex_);
+    Step hold;
+    hold.lx = int16_t(std::clamp(x, -1.0f, 1.0f) * 32767.0f);
+    hold.ly = int16_t(std::clamp(y, -1.0f, 1.0f) * 32767.0f);
+    hold.duration = std::chrono::milliseconds(500);
+    Step press = hold, gap;
+    press.buttons = buttons;
+    press.duration = std::chrono::milliseconds(150);
+    gap.duration = std::chrono::milliseconds(750);
+    steps_.push_back(hold);
+    steps_.push_back(press);
+    steps_.push_back(gap);
+  }
 
   X_STATUS Setup() override { return X_STATUS_SUCCESS; }
 
@@ -178,7 +253,7 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
   uint16_t Update() {
     std::lock_guard lock(mutex_);
     const auto now = Clock::now();
-    if (steps_.empty() && now >= next_poll_) {
+    if (steps_.empty() && now >= next_poll_ && REXCVAR_GET(scripted_input)) {
       next_poll_ = now + kPollInterval;
       LoadScript();
     }
@@ -217,6 +292,28 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
       if (!(words >> name) || name[0] == '#') {
         continue;
       }
+      if (name == "dumpmem") {
+        std::string address;
+        uint32_t size = 4096;
+        words >> address >> size;
+        ::Amped3_DumpMem(uint32_t(std::stoul(address, nullptr, 16)), size);
+        continue;
+      }
+      if (name == "findtext") {
+        // Debug: log where a text is in guest memory (options_hooks.cpp).
+        std::string text;
+        std::getline(words, text);
+        if (!text.empty() && text[0] == ' ') text.erase(0, 1);
+        ::Amped3_FindText(text);
+        continue;
+      }
+      if (name == "freeze") {
+        // Test-only: block the polling (game) thread for ms, to check the stall log.
+        int freeze_ms = 1000;
+        words >> freeze_ms;
+        std::this_thread::sleep_for(std::chrono::milliseconds(freeze_ms));
+        continue;
+      }
       if (name == "speed") {
         // Test-only: scale guest time (e.g. "speed 8" through the story, then
         // "speed 1"). Applies when the script is loaded.
@@ -224,6 +321,14 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
         words >> scalar;
         rex::chrono::Clock::set_guest_time_scalar(scalar);
         REXLOG_INFO("Amped3: scripted input: guest time x{}", scalar);
+        continue;
+      }
+      if (name == "set") {
+        // Test: change a setting mid-run, e.g. "set user_music off".
+        std::string flag, value;
+        words >> flag >> value;
+        rex::cvar::SetFlagByName(flag, value);
+        REXLOG_INFO("Amped3: scripted input: set {} {}", flag, value);
         continue;
       }
       if (name == "pixcapture") {
@@ -266,14 +371,22 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
         continue;
       }
       if (name == "stick") {
-        // "stick X Y ms": left stick at X, Y (-1..1, Y up) for ms, buttons up.
+        // "stick X Y ms [buttons]": left stick at X, Y (-1..1, Y up) for ms,
+        // with the named buttons held for its last 150 ms (e.g. a wheel pick).
         float x = 0.0f, y = 0.0f;
-        words >> x >> y >> ms;
+        std::string held;
+        words >> x >> y >> ms >> held;
         Step step;
         step.lx = int16_t(std::clamp(x, -1.0f, 1.0f) * 32767.0f);
         step.ly = int16_t(std::clamp(y, -1.0f, 1.0f) * 32767.0f);
         step.duration = std::chrono::milliseconds(ms < 0 ? 500 : ms);
         steps_.push_back(step);
+        if (uint16_t buttons = held.empty() ? 0 : ButtonsNamed(held)) {
+          step.buttons = buttons;
+          step.duration = std::chrono::milliseconds(150);
+          steps_.push_back(step);
+          steps_.push_back({0, kReleaseGap});
+        }
         continue;
       }
       if (name == "lt" || name == "rt") {
@@ -289,8 +402,9 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
       words >> ms;
       if (name == "wait") {
         steps_.push_back({0, std::chrono::milliseconds(ms < 0 ? 500 : ms)});
-      } else if (auto it = kButtons.find(name); it != kButtons.end()) {
-        steps_.push_back({it->second, std::chrono::milliseconds(ms < 0 ? 150 : ms)});
+      } else if (uint16_t buttons = ButtonsNamed(name)) {
+        // A button, or several held together ("back+lb").
+        steps_.push_back({buttons, std::chrono::milliseconds(ms < 0 ? 150 : ms)});
         steps_.push_back({0, kReleaseGap});
       } else {
         REXLOG_WARN("Amped3: scripted input: unknown command '{}'", name);
@@ -314,6 +428,22 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
 };
 
 }  // namespace
+
+uint16_t HeldButtons() { return g_driver ? g_driver->HeldButtons() : 0; }
+
+void Tap(uint16_t buttons, int count) {
+  if (g_driver) g_driver->Tap(buttons, count);
+}
+
+void TapStick(float x, float y, uint16_t buttons) {
+  if (g_driver) g_driver->TapStick(x, y, buttons);
+}
+
+void Cancel() {
+  if (g_driver) g_driver->Cancel();
+}
+
+bool Idle() { return !g_driver || g_driver->Idle(); }
 
 std::unique_ptr<rex::input::InputDriver> CreateDriver() {
   return std::make_unique<ScriptedInputDriver>();

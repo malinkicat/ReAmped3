@@ -3,7 +3,10 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(amped3 LANGUAGES CXX)
+project(amped3 LANGUAGES C CXX)
+if(WIN32)
+    enable_language(RC)
+endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,13 +34,33 @@ set(AMPED3_SOURCES
     src/native_inflate.cpp
     src/load_wait_probe.cpp
     src/fonts.cpp
+    src/achievement_progress.cpp
+    src/achievement_toast.cpp
+    src/game_menu.cpp
+    src/media_session.cpp
+    src/music_hooks.cpp
+    src/options_hooks.cpp
+    src/render_toggles.cpp
+    src/ui_patch.cpp
+    src/title_logo.cpp
+    src/save_hooks.cpp
+    src/amped_style.cpp
+    src/minigame_fps_fix.cpp
+    src/now_playing.cpp
+    src/radio_text.cpp
     src/quit_prompt.cpp
+    src/save_backup.cpp
     src/ring_wait.cpp
     src/view_distance.cpp
+    src/d3d_trace.cpp
+    src/native_math.cpp
+    src/intro_skip.cpp
+    src/boot_screen.cpp
+    launcher_sdl/third_party/miniz/miniz.c
 )
 
 if(WIN32)
-    add_executable(amped3 WIN32 ${AMPED3_SOURCES})
+    add_executable(amped3 WIN32 ${AMPED3_SOURCES} assets/icon/reamped3.rc)
 else()
     add_executable(amped3 ${AMPED3_SOURCES})
 endif()
@@ -61,6 +84,18 @@ if(WIN32 AND EXISTS "${AMPED3_SDK_BIN}/rexruntime.dll")
         VERBATIM)
 endif()
 
+# C++/WinRT (Windows SDK) for the system media session (src/media_session.cpp).
+if(WIN32)
+    target_include_directories(amped3 PRIVATE "$ENV{WindowsSdkDir}Include/$ENV{WindowsSDKVersion}cppwinrt")
+    # Not windowsapp.lib: that umbrella moves ordinary kernel32 imports onto
+    # API-set DLLs exe-wide. The WinRT DLLs load only if the Windows path runs
+    # (never under Proton, which takes media_session.txt).
+    target_link_libraries(amped3 PRIVATE runtimeobject ole32 delayimp)
+    target_link_options(amped3 PRIVATE "LINKER:/DELAYLOAD:api-ms-win-core-winrt-l1-1-0.dll"
+        "LINKER:/DELAYLOAD:api-ms-win-core-winrt-error-l1-1-1.dll"
+        "LINKER:/DELAYLOAD:api-ms-win-core-winrt-string-l1-1-0.dll")
+endif()
+
 # Exo 2 (SIL OFL) for the in-game prompts, next to the exe (src/fonts.cpp).
 add_custom_command(TARGET amped3 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -72,8 +107,23 @@ add_custom_command(TARGET amped3 POST_BUILD
 # Table-Tennis-Rockstar-PC (github.com/davidptrssvea/Table-Tennis-Rockstar-PC,
 # MIT); the installed SDK stays unchanged.
 target_include_directories(amped3 BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdk-overrides")
+# miniz (MIT, the launcher's copy): the UI patch compresses the scenes it
+# changes.
+target_include_directories(amped3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/launcher_sdl/third_party/miniz")
 if(TARGET amped3_recomp)
     target_include_directories(amped3_recomp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdk-overrides")
+endif()
+
+# Experiment (-DAMPED3_LTO=ON): ThinLTO over the game and the recompiled code,
+# so small guest functions can inline into their callers across files.
+option(AMPED3_LTO "ThinLTO for amped3 and amped3_recomp" OFF)
+if(AMPED3_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    foreach(target amped3 amped3_recomp)
+        if(TARGET ${target})
+            target_compile_options(${target} PRIVATE -flto=thin)
+        endif()
+    endforeach()
+    target_link_options(amped3 PRIVATE -flto=thin)
 endif()
 
 # x86-64-v3 (AVX2, FMA), like the runtime DLLs: std::fma in the recompiled code

@@ -5,7 +5,7 @@
 # delete can fail, so retry briefly.
 cd "$(dirname "$0")/.." && . tools/env.sh
 for try in 1 2 3 4 5; do
-  printf '%s\n' "$@" > build/input_script.tmp && mv -f build/input_script.tmp build/input_script.txt 2>/dev/null && exit 0
+  printf '%s\n' "$@" > ${AMPED3_BUILD:-build}/input_script.tmp && mv -f ${AMPED3_BUILD:-build}/input_script.tmp ${AMPED3_BUILD:-build}/input_script.txt 2>/dev/null && exit 0
   sleep 0.2
 done
 echo "pad.sh: could not write the input script" >&2; exit 1

@@ -6,13 +6,29 @@ ReAmped 3 builds on other open source work. What was used, and from where:
 |---|---|---|
 | [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) | Recompiler and runtime (built from a modified copy; the release ships its DLLs) | BSD 3-Clause |
 | [Xenia](https://github.com/xenia-project/xenia) / [Xenia Canary](https://github.com/xenia-canary/xenia-canary) | ReXGlue's runtime is derived from Xenia. The UI corruption fix is a port of [Xenia Canary PR #1129](https://github.com/xenia-canary/xenia-canary/pull/1129); the type-0 register write path follows Xenia Canary | BSD 3-Clause |
-| [iExplosiveRage/rexglue-sdk](https://github.com/iExplosiveRage/rexglue-sdk) | Render target, clear and resolve work (commits 5281f5d and 6aaf31a), ported into our runtime and extended | BSD 3-Clause (ReXGlue) |
+| [iExplosiveRage/rexglue-sdk](https://github.com/iExplosiveRage/rexglue-sdk) | Render target, clear and resolve work (commits 5281f5d and 6aaf31a), and the texture dump/replace system (burstlimit branch, commits 0a437ff to 92eed19: the sharp UI pack's loading), ported into our runtime and extended | BSD 3-Clause (ReXGlue) |
 | [Project8Recomp](https://github.com/theokyr/Project8Recomp) | Steam Deck performance ideas from its ReXGlue patches: bulk writes of side-effect-free GPU registers and the blocking timer-queue wait (with its fix to disruptorplus's blocking wait), adapted in our runtime | BSD 3-Clause |
+| [Amped 3 Revamped](https://github.com/minty-hippo/amped3revamped) | The sled turn and sled crash scoring frame-rate fixes (`project/src/minigame_fps_fix.cpp`, same fixes and constants as its `src/game_patches.cpp`) | Public domain |
 | [Table-Tennis-Rockstar-PC](https://github.com/davidptrssvea/Table-Tennis-Rockstar-PC) | Frame graph window and present hook (`project/src/frame_graph.cpp`), the launcher's starting layout, the floating-point exception header overrides (`project/sdk-overrides/rex`), the on-demand toast dialog | MIT |
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) | FSR 1 and CAS output filters (`amd_fidelityfx_dx12.dll`) | MIT |
+| [NVIDIA DLSS](https://github.com/NVIDIA/DLSS) | NVIDIA DLAA (`nvngx_dlss.dll`), not offered in this release (it ghosts riders without per-object motion vectors); the code stays. **Not distributed with ReAmped 3**: the launcher downloads it from NVIDIA's own DLSS release (v310.9.1) only when a player with an NVIDIA RTX card picks DLAA and accepts NVIDIA's license, checks it against its pinned SHA-256 and keeps it with that license in `vendor/dlss` | NVIDIA RTX SDKs license (shown before the download, kept as `vendor/dlss/nvngx_dlss.license.txt`) |
 | [SDL3](https://github.com/libsdl-org/SDL) | Window, input and audio (part of the ReXGlue runtime); the launcher's window, controller input and drawing (release 3.4.18, fetched by `project/launcher_sdl` and linked into `amped3_launcher.exe`) | zlib |
 | [Dear ImGui](https://github.com/ocornut/imgui) | The launcher's drawing and text (v1.92.9b, fetched by `project/launcher_sdl` and linked into `amped3_launcher.exe`) | MIT |
+| [Saira](https://github.com/Omnibus-Type/Saira) | Font for the launcher's hints and the loading screen's text (`project/assets/fonts`, shipped in `fonts/`) | SIL Open Font License 1.1 (`fonts/OFL-Saira.txt`) |
 | [Exo 2](https://github.com/NDISCOVER/Exo-2.0) | Font for the launcher and the in-game prompts (`project/assets/fonts`, shipped in `fonts/`) | SIL Open Font License 1.1 (`fonts/OFL.txt`) |
+| [SMAA](https://github.com/iryoku/smaa) | The SMAA anti-aliasing option (`SMAA.hlsl` and its area/search textures, compiled into the runtime) | MIT |
+| [dr_libs](https://github.com/mackron/dr_libs) (dr_mp3, dr_flac, dr_wav) | Decoding your own music (the runtime's user music player) | Public domain or MIT No Attribution |
+| [stb_vorbis](https://github.com/nothings/stb) | Decoding your own Ogg Vorbis music | Public domain or MIT |
+| [stb_image](https://github.com/nothings/stb) | Reading the game's UI packages to add the ReAmped 3 Options item (its zlib decoder only); the launcher reads the upscaler's PNGs for the Steam Deck's sharp UI pack | Public domain or MIT |
+| [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) | The sharp UI pack: its models (`realesrgan-x4plus-anime`, `realesrgan-x4plus`, shipped in `tools/esrgan/models`) enlarge the game's UI art on the player's PC, from their own game files; no game art is distributed | BSD 3-Clause (`tools/esrgan/licenses`) |
+| [Real-ESRGAN-ncnn-vulkan](https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan) | The upscaler program the launcher runs for the sharp UI pack (`tools/esrgan/realesrgan-ncnn-vulkan.exe`, release v0.2.5.0) | MIT (`tools/esrgan/licenses`) |
+| [ncnn](https://github.com/Tencent/ncnn) | The neural network runtime inside the upscaler | BSD 3-Clause (`tools/esrgan/licenses`) |
+| [miniz](https://github.com/richgel999/miniz) | The launcher's reading of the game's UI packages (ZIP) and writing of the sharp UI pack's PNGs (`project/launcher_sdl/third_party/miniz`) | MIT |
+| [xxHash](https://github.com/Cyan4973/xxHash) | The sharp UI pack's texture keys (XXH3), the same as the runtime's (`project/launcher_sdl/third_party/xxhash`, `project/thirdparty/xxhash`) | BSD 2-Clause |
+| [stb_image_write](https://github.com/nothings/stb) | Writing the sharp UI pack's images: the launcher's JPEG loading screens and 2x Deck set, the game's sharp title logo and its loading screen | Public domain or MIT |
+| [stb_truetype](https://github.com/nothings/stb) (Dear ImGui's copy, `imstb_truetype.h`) | Drawing the loading screen's text at start-up | Public domain or MIT |
+| [pinyon-shift](https://github.com/arcanite24/pinyon-shift) / shiftglue SDK | The idea of reporting the console's own music player as active (XMP playback controller) while your music plays; no code copied | BSD 3-Clause |
+| [FLUX.1 schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell) | Generated the ReAmped 3 logo (`project/assets/logo`) | Apache 2.0 (the model; the generated image is ours) |
 | [zlib](https://zlib.net) 1.2.3 | `project/src/native_inflate.cpp` is a port of zlib's `inffast.c` (the game's own decompressor, run natively) | zlib |
 
 Brian Maguire found the cause of the UI corruption, as noted in the [Amped 3 compatibility report](https://github.com/xenia-canary/game-compatibility/issues/583).
@@ -129,6 +145,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+## SMAA
+
+```
+Copyright (C) 2013 Jorge Jimenez (jorge@iryoku.com)
+Copyright (C) 2013 Jose I. Echevarria (joseignacioechevarria@gmail.com)
+Copyright (C) 2013 Belen Masia (bmasia@unizar.es)
+Copyright (C) 2013 Fernando Navarro (fernandn@microsoft.com)
+Copyright (C) 2013 Diego Gutierrez (diegog@unizar.es)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software. As clarification, there is no
+requirement that the copyright notice and permission be included in binary
+distributions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## AMD FidelityFX SDK

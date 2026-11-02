@@ -1,0 +1,3 @@
+// The ReAmped 3 icon (tools/art/make_icons.py, the R3 monogram), shared by
+// amped3.exe and the launcher; Windows shortcuts take it from the exe.
+1 ICON "reamped3.ico"

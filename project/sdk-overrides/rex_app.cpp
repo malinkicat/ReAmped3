@@ -59,6 +59,9 @@ bool xeXamIsUIActive();
 namespace amped3::quit_prompt {
 bool IsOpen();
 }
+namespace amped3::game_menu {
+bool IsOpen();  // src/game_menu.cpp
+}  // namespace amped3::game_menu
 
 namespace rex {
 
@@ -267,6 +270,9 @@ bool ReXApp::ConstructRuntime(const PathConfig& paths) {
           return false;
         // Amped 3: the quit prompt (src/quit_prompt.cpp) owns input too.
         if (amped3::quit_prompt::IsOpen())
+          return false;
+        // Amped 3: and the ReAmped 3 menu (src/game_menu.cpp).
+        if (amped3::game_menu::IsOpen())
           return false;
         if (!debug_overlay_ && !console_overlay_ && !settings_overlay_ && !achievements_overlay_)
           return true;

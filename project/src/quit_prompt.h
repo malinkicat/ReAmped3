@@ -19,6 +19,8 @@ void Initialize(rex::ui::WindowedAppContext& app_context, rex::ui::ImGuiDrawer* 
 void Open();
 // Any thread: Open on the UI thread.
 void OpenFromAnyThread();
+// Any thread: quits now, no prompt (the menu's Quit row).
+void QuitFromAnyThread();
 // Any thread: game input stays paused while it's open.
 bool IsOpen();
 // Any thread, every game frame: XInput buttons of all pads. Back + Start held

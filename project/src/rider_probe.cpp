@@ -30,6 +30,9 @@
 REXCVAR_DECLARE(bool, rider_probe);
 REXCVAR_DECLARE(int32_t, rider_dump);
 REXCVAR_DECLARE(bool, rider_timers);
+REXCVAR_DEFINE_INT32(rider_probe_ms, 1000, "Debug", "--rider_probe: the report window in ms");
+REXCVAR_DEFINE_BOOL(ground_push_dt, false, "Debug",
+                    "Experiment: the rider ground contact's depth factor uses the frame's time step instead of a fixed 1/30");
 REXCVAR_DEFINE_INT32(ai_physics_hz, 0, "Debug", "Update AI riders at this rate with the accumulated time step (0 = every frame)");
 
 namespace {
@@ -207,14 +210,18 @@ bool Amped3_RiderUpdate(PPCRegister& r3, PPCRegister& f1) {
     g_window_start = now;
   }
   const double window = std::chrono::duration<double>(now - g_window_start).count();
-  if (window < 1.0) {
+  if (window < REXCVAR_GET(rider_probe_ms) / 1000.0) {
     return false;
   }
   std::string out;
   for (const auto& [rider, v] : g_riders) {
-    out += fmt::format(" [{:08X} {:.0f}/s steps={:.3f}s dist={:.1f} speed={:.1f}/s pos=({:.0f},{:.0f},{:.0f})]",
+    // Net displacement too: the summed path also counts frame-to-frame jitter.
+    const float nx = v.last[0] - v.start[0], ny = v.last[1] - v.start[1], nz = v.last[2] - v.start[2];
+    const double net = std::sqrt(nx * nx + ny * ny + nz * nz);
+    out += fmt::format(" [{:08X} {:.0f}/s steps={:.3f}s dist={:.1f} speed={:.1f}/s net={:.1f}/s pos=({:.0f},{:.0f},{:.0f})]",
                        rider, v.updates / window, v.steps, v.distance,
-                       v.steps > 0 ? v.distance / v.steps : 0.0, v.last[0], v.last[1], v.last[2]);
+                       v.steps > 0 ? v.distance / v.steps : 0.0, v.steps > 0 ? net / v.steps : 0.0, v.last[0], v.last[1],
+                       v.last[2]);
   }
   REXLOG_INFO("RiderProbe:{}", out);
   g_riders.clear();
@@ -266,4 +273,10 @@ void Amped3_RiderHeading(PPCRegister& r31, PPCRegister& f0) {
   REXLOG_INFO("RiderHeading:{}", out);
   g_heading.clear();
   g_heading_start = now;
+}
+
+// sub_822265D0 at 0x82226820: f0 (penetration depth) * f13 (1/30) is stored
+// in the actor's contact info; f30 is the update's time step.
+void Amped3_GroundPushStep(PPCRegister& f13, PPCRegister& f30) {
+  if (REXCVAR_GET(ground_push_dt)) f13.f64 = f30.f64;
 }

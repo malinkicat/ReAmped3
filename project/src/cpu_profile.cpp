@@ -1,9 +1,12 @@
 // cpu_profile.cpp - Debug sampling profiler for host threads
 //
 // Start(seconds) samples every thread of the process ~500 times a second: each
-// thread is suspended, its instruction pointer and up to kFrames caller frames
-// (RtlVirtualUnwind) are read, and it is resumed. Nothing is allocated while a
-// thread is suspended (it could hold the heap lock). At the end the counts go
+// thread is suspended, its registers and the top 64 KB of its stack are
+// copied, and it is resumed; its instruction pointer and up to kFrames caller
+// frames are then unwound (RtlVirtualUnwind) on the copy. Nothing that takes a
+// lock runs while a thread is suspended: allocation could need the heap lock,
+// and unwinding in place, the function tables' (it froze the game mid-profile).
+// A watchdog still resumes any thread left suspended over 100 ms. At the end the counts go
 // to cpu_profile.csv next to the executable as
 //   thread,module,rva,self,total
 // (busy samples only; samples blocked in a syscall are counted per thread as
@@ -27,6 +30,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <string>
 #include <thread>
@@ -40,6 +44,29 @@ constexpr int kFrames = 20;
 constexpr auto kInterval = std::chrono::microseconds(2000);
 
 std::atomic<bool> g_running{false};
+// The sampled thread's stack top, copied while it's suspended.
+alignas(16) uint8_t g_stack[64 * 1024];
+// The thread the sampler has suspended (or null), and since when (steady
+// clock ticks), for the watchdog.
+std::atomic<HANDLE> g_suspended{nullptr};
+std::atomic<int64_t> g_suspended_at{0};
+
+void Watchdog() {
+  while (g_running) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    HANDLE h = g_suspended.load();
+    const int64_t at = g_suspended_at.load();
+    if (h && std::chrono::steady_clock::now().time_since_epoch().count() - at >
+                 std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                     std::chrono::milliseconds(100)).count()) {
+      // The sampler skips its own resume once this one has run.
+      if (g_suspended.compare_exchange_strong(h, nullptr)) {
+        ResumeThread(h);
+        REXLOG_WARN("Amped3: cpu profile: a thread stayed suspended over 100 ms; resumed it");
+      }
+    }
+  }
+}
 
 struct Module {
   uintptr_t base = 0, end = 0;
@@ -135,11 +162,37 @@ void Run(int seconds) {
     for (auto& [id, thread] : threads) {
       if (!thread.first) continue;
       int depth = 0;
+      const auto sample_start = std::chrono::steady_clock::now();
       if (SuspendThread(thread.first) == DWORD(-1)) continue;
+      g_suspended_at = std::chrono::steady_clock::now().time_since_epoch().count();
+      g_suspended = thread.first;
+      // While suspended only its registers and the top of its stack are
+      // copied (no locks: the unwinder's function table lookups take them).
       CONTEXT context{};
       context.ContextFlags = CONTEXT_FULL;
+      size_t copied = 0;
       if (GetThreadContext(thread.first, &context)) {
-        // Unwind while suspended; no allocation here.
+        MEMORY_BASIC_INFORMATION region{};
+        if (VirtualQuery(reinterpret_cast<void*>(context.Rsp), &region, sizeof(region))) {
+          const uintptr_t end = reinterpret_cast<uintptr_t>(region.BaseAddress) + region.RegionSize;
+          copied = std::min<size_t>(sizeof(g_stack), end - context.Rsp);
+          std::memcpy(g_stack, reinterpret_cast<const void*>(context.Rsp), copied);
+        }
+      }
+      // Unless the watchdog already did.
+      HANDLE expected = thread.first;
+      if (g_suspended.compare_exchange_strong(expected, nullptr)) ResumeThread(thread.first);
+      if (const auto took = std::chrono::steady_clock::now() - sample_start; took > std::chrono::milliseconds(50)) {
+        REXLOG_WARN("Amped3: cpu profile: sampling '{}' took {} ms (copied {} bytes)", thread.second,
+                    std::chrono::duration_cast<std::chrono::milliseconds>(took).count(), copied);
+      }
+      // Unwind on the copy: stack addresses in [Rsp, Rsp + copied) are moved
+      // into it, and the walk stops when it leaves it.
+      if (copied) {
+        const DWORD64 real = context.Rsp, copy = reinterpret_cast<DWORD64>(g_stack);
+        auto in_real = [&](DWORD64 a) { return a >= real && a < real + copied; };
+        context.Rsp = copy;
+        if (in_real(context.Rbp)) context.Rbp += copy - real;
         for (; depth < kFrames && context.Rip; ++depth) {
           frames[depth] = context.Rip;
           DWORD64 image_base = 0;
@@ -149,9 +202,16 @@ void Run(int seconds) {
           DWORD64 establisher = 0;
           RtlVirtualUnwind(UNW_FLAG_NHANDLER, image_base, context.Rip, function, &context,
                            &handler_data, &establisher, nullptr);
+          if (context.Rsp < copy || context.Rsp >= copy + copied) {
+            // Off the copy: this frame and its caller (read from the copy)
+            // are still right; nothing above them is.
+            ++depth;
+            if (depth < kFrames && context.Rip) frames[depth++] = context.Rip;
+            break;
+          }
+          if (in_real(context.Rbp)) context.Rbp += copy - real;
         }
       }
-      ResumeThread(thread.first);
       // A thread stopped right after a syscall instruction is blocked in the
       // kernel (waiting); count it as idle instead of attributing a stack, but
       // keep where it waits ("thread (waiting)" chains, deeper: the waits are
@@ -227,6 +287,7 @@ void Start(int seconds) {
   }
   REXLOG_INFO("Amped3: cpu profile: sampling for {} s", seconds);
   std::thread(Run, seconds).detach();
+  std::thread(Watchdog).detach();
 }
 
 }  // namespace amped3::cpu_profile

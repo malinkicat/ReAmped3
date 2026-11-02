@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build, launch, wait, report: tools/iterate.sh [seconds] [extra game args...]
 cd "$(dirname "$0")/.." && . tools/env.sh
-taskkill.exe /f /im amped3.exe >/dev/null 2>&1; sleep 2
+if tasklist.exe | grep -qi amped3; then echo "a game is already running; not starting"; exit 1; fi
 cmd.exe /c "tools\\build.cmd" 12 > build.log 2>&1 || { grep -E -A10 "FAILED:|error:" build.log | head -40; exit 1; }
 rm -f run.log 2>/dev/null
 powershell.exe -NoProfile -Command "Start-Process -FilePath '$WINROOT\tools\run.cmd' -WindowStyle Hidden ${2:+-ArgumentList '${*:2}'}" </dev/null >/dev/null 2>&1

@@ -5,6 +5,9 @@
 
 cmake_minimum_required(VERSION 3.25)
 project(amped3_launcher LANGUAGES C CXX)
+if(WIN32)
+    enable_language(RC)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,6 +58,15 @@ add_executable(amped3_launcher WIN32
     src/ui.cpp
     src/logic.cpp
     src/system_win.cpp
-    src/selftest.cpp)
+    src/vendor.cpp
+    src/selftest.cpp
+    src/ui_pack.cpp
+    ../src/title_logo.cpp
+    third_party/miniz/miniz.c
+    ../assets/icon/reamped3.rc)
+# miniz (MIT): the UI packages are ZIPs, and the pack's PNGs. xxHash (BSD-2):
+# the runtime's texture keys. stb_image (public domain / MIT): reading the
+# upscaler's PNGs for the Deck's 2x pack (ui_pack.cpp).
+target_include_directories(amped3_launcher PRIVATE third_party/miniz third_party/xxhash third_party/stb)
 target_compile_definitions(amped3_launcher PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
-target_link_libraries(amped3_launcher PRIVATE imgui SDL3::SDL3-static shell32 user32)
+target_link_libraries(amped3_launcher PRIVATE imgui SDL3::SDL3-static shell32 user32 winhttp bcrypt dxgi)

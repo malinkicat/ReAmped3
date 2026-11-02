@@ -9,6 +9,8 @@
 #include "quit_prompt.h"
 
 #include "fonts.h"
+#include "game_menu.h"
+#include "scripted_input.h"
 
 #include <rex/kernel/xam/private.h>
 #include <rex/logging.h>
@@ -25,6 +27,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+
+void Amped3_SaveAndQuit();  // save_hooks.cpp: saves, then QuitFromAnyThread
 
 namespace amped3::quit_prompt {
 namespace {
@@ -77,9 +81,9 @@ class QuitDialog : public rex::ui::ImGuiDialog {
       if (choice) {
         ImGui::CloseCurrentPopup();
         Close();
-        if (choice > 0 && g_quit) {
+        if (choice > 0) {
           REXLOG_INFO("Amped3: quit from the quit prompt");
-          g_quit();
+          Amped3_SaveAndQuit();
         }
       }
       ImGui::EndPopup();
@@ -183,7 +187,7 @@ class QuitDialog : public rex::ui::ImGuiDialog {
       mouse_choice_ = 0;
       ImGui::CloseCurrentPopup();
       Close();
-      if (choice > 0 && g_quit) g_quit();
+      if (choice > 0) Amped3_SaveAndQuit();
     }
   }
 
@@ -204,7 +208,9 @@ void Initialize(rex::ui::WindowedAppContext& app_context, rex::ui::ImGuiDrawer* 
 }
 
 void Open() {
-  if (!g_drawer || g_open) {
+  // Not over the ReAmped 3 menu (its Escape means back; its Quit item closes
+  // it before opening this).
+  if (!g_drawer || g_open || game_menu::IsShowing()) {
     return;
   }
   if (rex::kernel::xam::xeXamIsUIActive()) {
@@ -218,6 +224,15 @@ void Open() {
 void OpenFromAnyThread() {
   if (g_app_context) {
     g_app_context->CallInUIThread([] { Open(); });
+  }
+}
+
+void QuitFromAnyThread() {
+  if (g_app_context) {
+    g_app_context->CallInUIThread([] {
+      REXLOG_INFO("Amped3: quit from the menu");
+      if (g_quit) g_quit();
+    });
   }
 }
 
@@ -255,7 +270,8 @@ uint16_t PadButtons() {
     }
     return GetStateFn(nullptr);
   }();
-  uint16_t buttons = 0;
+  // With --scripted_input (tests), its buttons too.
+  uint16_t buttons = scripted_input::HeldButtons();
   for (uint32_t user = 0; get_state && user < 4; ++user) {
     XInputState state{};
     if (get_state(user, &state) == 0) {
