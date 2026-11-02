@@ -84,7 +84,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Bytes = std::vector<uint8_t>;
-constexpr int kVersion = 28;  // bump when the patches change
+constexpr int kVersion = 29;  // bump when the patches change (29: quick save / load off)
 
 uint32_t Be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 uint16_t Le16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }

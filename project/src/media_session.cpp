@@ -29,6 +29,7 @@
 #endif
 #include <windows.h>
 #include <shellapi.h>
+#include <tlhelp32.h>
 #include <audiopolicy.h>
 #include <mmdeviceapi.h>
 #include <wrl/client.h>
@@ -104,6 +105,27 @@ bool LaunchSpotify() {
   return result > 32;
 }
 std::once_flag g_started;
+
+// Spotify.exe is running (whether or not Windows lists it as a media player).
+bool SpotifyRunning() {
+  HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return false;
+  PROCESSENTRY32W entry{};
+  entry.dwSize = sizeof(entry);
+  bool found = false;
+  for (BOOL ok = Process32FirstW(snap, &entry); ok && !found; ok = Process32NextW(snap, &entry)) {
+    found = _wcsicmp(entry.szExeFile, L"Spotify.exe") == 0;
+  }
+  CloseHandle(snap);
+  return found;
+}
+
+// The media Play/Pause key: a Spotify that hasn't played since it opened has
+// no media session to press play on, but it answers the key.
+void PressMediaPlay() {
+  keybd_event(VK_MEDIA_PLAY_PAUSE, 0, KEYEVENTF_EXTENDEDKEY, 0);
+  keybd_event(VK_MEDIA_PLAY_PAUSE, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+}
 
 void ReportToRuntime(bool playing, const std::string& text) {
   static const auto report = [] {
@@ -283,6 +305,7 @@ void Run() {
              GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing;
     };
     bool autoplayed = false, launched = false;
+    auto no_player_since = std::chrono::steady_clock::now();
     std::string turn_text;                       // the track the player's turn began with
     auto turn_start = std::chrono::steady_clock::now();
     uint32_t game_turn_starts = 0;               // the game's song starts counted from
@@ -332,6 +355,16 @@ void Run() {
       if (!chosen && !launched) {
         launched = true;
         if (LaunchSpotify()) REXLOG_INFO("Amped3: media session: starting Spotify (minimized)");
+        no_player_since = std::chrono::steady_clock::now();
+      }
+      // No media player at all but Spotify open (it only becomes one once it
+      // plays): the media key starts it, once, after it's had time to open.
+      // Only with no other player, so the key can't go to anything else.
+      if (!chosen && !autoplayed && !title && !g_game_turn &&
+          std::chrono::steady_clock::now() - no_player_since > std::chrono::seconds(4) && SpotifyRunning()) {
+        autoplayed = true;
+        PressMediaPlay();
+        REXLOG_INFO("Amped3: media session: started Spotify with the media key (no media session yet)");
       }
       bool playing = false;
       if (chosen) {
