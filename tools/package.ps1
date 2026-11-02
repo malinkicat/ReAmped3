@@ -87,7 +87,7 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
 @(
     $(if ($Release) { "ReAmped 3 v$version ($(Get-Date -Format yyyy-MM-dd))" } else { "ReAmped 3 - test build ($(Get-Date -Format yyyy-MM-dd))" }),
     "",
-    "Needs: Windows 10/11 x64, a CPU with AVX2, a DirectX 12 GPU, and your own",
+    "Needs: Windows 11 x64, a CPU with AVX2, a DirectX 12 GPU, and your own",
     "extracted copy of Amped 3 (the folder with default.xex). No game files are",
     "included.",
     "",
