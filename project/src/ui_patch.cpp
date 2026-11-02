@@ -84,7 +84,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Bytes = std::vector<uint8_t>;
-constexpr int kVersion = 29;  // bump when the patches change (29: quick save / load off)
+constexpr int kVersion = 30;  // bump when the patches change (30: title and trail map unscaled)
 
 uint32_t Be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 uint16_t Le16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
@@ -659,6 +659,9 @@ UiClass ClassOf(const std::string& scene) {
   // Full-screen layers keep covering the screen; templates are scaled by the
   // scenes that use them.
   if (scene == "HUD_Fade" || scene == "BackgroundPlane" || scene.rfind("TMP_", 0) == 0) return UiClass::kNone;
+  // The title and the trail map are full-screen pictures, not menus: kept
+  // as they are (shrunk, their art left gaps round the edges).
+  if (scene == "StartScreen" || scene == "TrailMap") return UiClass::kNone;
   static const char* const kHud[] = {
       "AwesMeter", "CamcorderOverlay", "CameraHud", "CountDownTimer", "GasGauge", "HudFlyinTextMenu",
       "ImpressTimerHud", "IndieBalanceMeter", "KudosChallengeHud", "NewScoreHUD", "PreCameraReticle", "ProHud",
