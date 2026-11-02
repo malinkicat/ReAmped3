@@ -62,7 +62,10 @@ wait_game() {
           # A skip with it stopped (not paused for the game's music): play too.
           [ -z "$playing" ] && [ -z "$paused_player" ] && { q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; } ;;
         pause) [ -n "$playing" ] && { q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=$playing; playing=""; } ;;
-        play) [ -z "$playing" ] && { q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; paused_player=""; } ;;
+        play|play\ start) [ -z "$playing" ] && {
+          # "play start": the game starting it for a ride, from the start of the song.
+          [ "$cmd" = "play start" ] && q "$p" --method org.mpris.MediaPlayer2.Player.Seek -- -9000000000 >/dev/null
+          q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; paused_player=""; } ;;
         volume\ *) v=${cmd#volume }
           q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
       esac

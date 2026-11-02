@@ -303,7 +303,7 @@ void RunFromFile() {
     ReportToRuntime(playing, last_text);
     if (!autoplayed && !title && !paused_by_us && status == "stopped") {
       autoplayed = true;
-      command("play");
+      command("play start");  // from the start of its song (not mid-song from last time)
       REXLOG_INFO("Amped3: media session: started the player");
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -437,6 +437,9 @@ void Run() {
         // The player starts by itself: no switching to it to press play.
         if (!autoplayed && !title && !g_game_turn && !is_playing(*chosen)) {
           autoplayed = true;
+          // From the start of its song (not mid-song from last time); resuming
+          // after the game's own music carries on where it was.
+          chosen->TryChangePlaybackPositionAsync(0).get();
           chosen->TryPlayAsync().get();
           REXLOG_INFO("Amped3: media session: started the player");
         }
