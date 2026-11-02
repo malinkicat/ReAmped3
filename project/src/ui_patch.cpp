@@ -48,9 +48,11 @@
 #include "../thirdparty/stb/stb_image.h"
 
 REXCVAR_DEFINE_BOOL(ui_patch, true, "UI", "Add ReAmped 3 to the game's own Options screen");
-REXCVAR_DEFINE_BOOL(quick_load, true, "Game",
+// Off since 2026-11-02 (user): it isn't a save state, only the last save
+// reloaded through the main menu, which the pause menu already offers.
+REXCVAR_DEFINE_BOOL(quick_load, false, "Game",
                     "LB twice on the pause screen loads the last save (through the game's own path: "
-                    "leave the mountain without saving, load, Hit the Slopes)");
+                    "leave the mountain without saving, load, Hit the Slopes). Off: not offered");
 REXCVAR_DEFINE_BOOL(title_logo, false, "UI",
                     "The ReAmped 3 logo on the title screen and the start-up loading screen (drawn from the game's "
                     "own logo); off: Amped 3's");

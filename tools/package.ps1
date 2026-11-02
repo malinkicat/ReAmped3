@@ -155,7 +155,7 @@ if (-not $Release) {
     "7. Earn an achievement: a popup with a chime.",
     "8. Sharp UI: crisp menus, icons and text at 4K; X on Sharp UI remakes it.",
     "9. Controls: swap two controller buttons and check them in game; Reset.",
-    "10. Pause > Main Menu > Yes: no freeze. Quick load: LB twice on pause.",
+    "10. Pause > Main Menu > Yes: no freeze.",
     "11. Sounds: listen for clicks or odd repeats."
 ) | Set-Content -Encoding ascii (Join-Path $dir "TEST-CHECKLIST.txt")
 }
