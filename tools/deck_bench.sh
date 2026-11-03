@@ -102,14 +102,14 @@ stop_game() {
 on_exit() {
   inhibit_off; restore_save
   # (The capture loop is a transient service: made again, not restarted.)
-  [ -n "$gaming" ] && "${SSH[@]}" "rm -f ReAmped3/extra_args.txt; [ -f ReAmped3/capture.sh ] && { systemctl --user reset-failed reamped3-capture 2>/dev/null; systemd-run --user --quiet --unit=reamped3-capture bash \$HOME/ReAmped3/capture.sh; }; true"
+  [ -n "$gaming" ] && "${SSH[@]}" "cd ReAmped3 && { [ -f extra_args.saved ] && mv -f extra_args.saved extra_args.txt || rm -f extra_args.txt; }; cd; [ -f ReAmped3/capture.sh ] && { systemctl --user reset-failed reamped3-capture 2>/dev/null; systemd-run --user --quiet --unit=reamped3-capture bash \$HOME/ReAmped3/capture.sh; }; true"
 }
 [ -n "$gaming" ] || inhibit_on
 trap on_exit EXIT
 "${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt ReAmped3/cpu_profile.csv"
 flags="--ride_after 3 --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true $*"
 if [ -n "$gaming" ]; then
-  "${SSH[@]}" "cd ReAmped3 && { [ -f amped3.log ] && mv -f amped3.log amped3.log.prev; true; } && echo '$flags' > extra_args.txt && systemctl --user stop reamped3-capture 2>/dev/null; timeout 20 steam $STEAM_GAME >/dev/null 2>&1; true" || exit 1
+  "${SSH[@]}" "cd ReAmped3 && { [ -f amped3.log ] && mv -f amped3.log amped3.log.prev; true; } && { [ -f extra_args.txt ] && cp -f extra_args.txt extra_args.saved; true; } && echo '$flags' > extra_args.txt && systemctl --user stop reamped3-capture 2>/dev/null; timeout 20 steam $STEAM_GAME >/dev/null 2>&1; true" || exit 1
 elif [ -n "$launcher" ]; then
   "${SSH[@]}" "cd ReAmped3 && { [ -f amped3.log ] && mv -f amped3.log amped3.log.prev; true; } && systemctl --user reset-failed reamped3 2>/dev/null; systemd-run --user --quiet --collect --unit=reamped3 --working-directory=\$HOME/ReAmped3 bash -c './run.sh $flags > proton.log 2>&1'" || exit 1
 else
