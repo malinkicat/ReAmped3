@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <map>
 #include <atomic>
 #include <cmath>
 #include <memory>
@@ -107,6 +108,9 @@ struct Repeat {
 };
 
 struct App {
+  // Where each focusable item was drawn in the last frame (window pixels), for
+  // moving the focus by direction.
+  std::map<Item, Rect> rects;
   SDL_Window* window = nullptr;
   SDL_Renderer* renderer = nullptr;
   ImFont* body = nullptr;
@@ -781,6 +785,53 @@ std::vector<Item> NavOrder(const App& a) {
   return v;
 }
 
+// The nearest item drawn in that direction from the focused one (dx, dy:
+// -1, 0 or 1): the distance that way plus eight times any sideways gap, so
+// what's straight ahead wins over what's merely closer. False if there's none.
+bool MoveFocusToward(App& a, int dx, int dy) {
+  if (a.status == "Settings saved") a.status.clear();
+  const auto cur_it = a.rects.find(a.focus == Item::Quit && !a.rects.count(Item::Quit) ? Item::Ride : a.focus);
+  if (cur_it == a.rects.end()) return false;
+  const Rect c = cur_it->second;
+  Item best = a.focus;
+  float best_score = 1e30f;
+  for (const auto& [item, r] : a.rects) {
+    if (item == cur_it->first) continue;
+    float ahead, side;
+    if (dy) {
+      ahead = dy > 0 ? r.y0 - c.y1 : c.y0 - r.y1;
+      side = std::max(0.0f, std::max(r.x0 - c.x1, c.x0 - r.x1));
+    } else {
+      ahead = dx > 0 ? r.x0 - c.x1 : c.x0 - r.x1;
+      // (By the rows' middles: the toggles' boxes overlap the rows above and
+      // below them, so a gap would say they're all on one row.)
+      side = std::abs((r.y0 + r.y1) - (c.y0 + c.y1)) * 0.5f;
+    }
+    if (ahead < -2.0f * a.s) continue;  // not that way (a little overlap allowed)
+    // Among equals, the one more in line with the focused item's middle.
+    const float mid = dy ? std::abs((r.x0 + r.x1) - (c.x0 + c.x1)) : std::abs((r.y0 + r.y1) - (c.y0 + c.y1));
+    const float score = std::max(0.0f, ahead) + 8.0f * side + 0.05f * mid;
+    if (score < best_score) {
+      best_score = score;
+      best = item;
+    }
+  }
+  if (best == a.focus) return false;
+  a.focus = best;
+  return true;
+}
+
+// Rows whose value left / right change (everything else: left / right move).
+bool IsValueRow(Item item) {
+  switch (item) {
+    case Item::Resolution: case Item::FrameRate: case Item::CustomFps: case Item::AA:
+    case Item::Scaling: case Item::Music: case Item::UiSize:
+      return true;
+    default:
+      return false;
+  }
+}
+
 void MoveFocus(App& a, int delta) {
   if (a.status == "Settings saved") a.status.clear();
   Item cur = a.focus == Item::Quit ? Item::Ride : a.focus;
@@ -807,14 +858,6 @@ void Change(App& a, int delta, bool wrap) {
     case Item::Scaling: Step(SharpenValues(), a.st.sharpen, delta, wrap); break;
     case Item::Music: Step(MusicValues(), a.st.music, delta, wrap); break;
     case Item::UiSize: a.st.ui_size = std::clamp(a.st.ui_size + 10 * delta, 50, UiSizeMax(nullptr, a.deck)); break;
-    // The toggles, laid out in rows: left / right go along the row.
-    case Item::Fullscreen: case Item::SharpUi: case Item::ReampedLogo: case Item::Tearing: case Item::SkipIntro: {
-      const std::vector<Item> row = a.focus == Item::Tearing || a.focus == Item::SkipIntro
-                                        ? std::vector<Item>{Item::Tearing, Item::SkipIntro}
-                                        : std::vector<Item>{Item::Fullscreen, Item::SharpUi, Item::ReampedLogo};
-      const int i = int(std::find(row.begin(), row.end(), a.focus) - row.begin());
-      a.focus = row[size_t(std::clamp(i + (delta > 0 ? 1 : -1), 0, int(row.size()) - 1))];
-    } break;
     // The bottom buttons, left to right.
     case Item::Save: case Item::Controls: case Item::Quit: case Item::Ride: {
       const std::vector<Item> row = {Item::Save, Item::Controls, Item::Quit, Item::Ride};
@@ -935,10 +978,13 @@ void RemakeSharpUi(App& a) {
 void HandleMain(App& a, Act act) {
   switch (act) {
     case Act::X: if (a.focus == Item::SharpUi) RemakeSharpUi(a); break;
-    case Act::Up: MoveFocus(a, -1); break;
-    case Act::Down: MoveFocus(a, 1); break;
-    case Act::Left: Change(a, -1, false); break;
-    case Act::Right: Change(a, 1, false); break;
+    // Up / down: the nearest item that way (in the list's order if the
+    // layout isn't known yet). Left / right: change a value row's value,
+    // else move.
+    case Act::Up: if (!MoveFocusToward(a, 0, -1) && !a.rects.count(a.focus)) MoveFocus(a, -1); break;
+    case Act::Down: if (!MoveFocusToward(a, 0, 1) && !a.rects.count(a.focus)) MoveFocus(a, 1); break;
+    case Act::Left: if (IsValueRow(a.focus)) Change(a, -1, false); else MoveFocusToward(a, -1, 0); break;
+    case Act::Right: if (IsValueRow(a.focus)) Change(a, 1, false); else MoveFocusToward(a, 1, 0); break;
     case Act::PageUp: if (a.focus == Item::CustomFps) Change(a, -10, false); break;
     case Act::PageDown: if (a.focus == Item::CustomFps) Change(a, 10, false); break;
     case Act::A: Activate(a); break;
@@ -1315,6 +1361,7 @@ void DrawHints(App& a, float y) {
 
 // A focusable item: mouse hover moves the focus to it.
 void Track(App& a, Item item, const Rect& r) {
+  a.rects[item] = r;
   if (a.mouse_moved && Hover(a, r)) a.focus = item;
 }
 
@@ -2064,6 +2111,8 @@ void Frame(App& a) {
     }
   }
   a.acts.clear();
+  // (Cleared after the input above: it moves by the last frame's layout.)
+  a.rects.clear();  // filled again by this frame's Track calls
   UpdateLogo(a, FolderValid(a));
   DrawHeader(a);
   if (a.job) DrawVendor(a);
