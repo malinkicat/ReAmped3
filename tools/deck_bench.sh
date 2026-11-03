@@ -96,7 +96,7 @@ alive() {
 # Wine have all exited: launching again before that shows the player Steam's
 # "game already running" error (and the bench fails).
 wait_game_gone() {
-  "${SSH[@]}" "for i in \$(seq 60); do pgrep -f 'ReAmped3/(run|ReAmped3)\.sh|[a]mped3(_launcher)?\.exe|wineserver|SteamLaunch AppId=3772152186' >/dev/null || exit 0; sleep 1; done; exit 1" ||
+  "${SSH[@]}" "for i in \$(seq 60); do pgrep -f '[R]eAmped3/(run|ReAmped3)\.sh|[a]mped3(_launcher)?\.exe|[w]ineserver|[S]teamLaunch AppId=3772152186' >/dev/null || exit 0; sleep 1; done; exit 1" ||
     echo "$label: the previous game still hadn't exited after 60 s" >&2
 }
 stop_game() {
