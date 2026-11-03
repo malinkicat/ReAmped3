@@ -101,8 +101,8 @@ stop_game() {
 }
 on_exit() {
   inhibit_off; restore_save
-  # (The capture loop is a transient service: made again, not restarted.)
-  [ -n "$gaming" ] && "${SSH[@]}" "cd ReAmped3 && { [ -f extra_args.saved ] && mv -f extra_args.saved extra_args.txt || rm -f extra_args.txt; }; cd; [ -f ReAmped3/capture.sh ] && { systemctl --user reset-failed reamped3-capture 2>/dev/null; systemd-run --user --quiet --unit=reamped3-capture bash \$HOME/ReAmped3/capture.sh; }; true"
+  # (The screen capture loop stays off: its screenshots stutter the game.)
+  [ -n "$gaming" ] && "${SSH[@]}" "cd ReAmped3 && { [ -f extra_args.saved ] && mv -f extra_args.saved extra_args.txt || rm -f extra_args.txt; }; true"
 }
 [ -n "$gaming" ] || inhibit_on
 trap on_exit EXIT
