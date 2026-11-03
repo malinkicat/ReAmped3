@@ -25,7 +25,23 @@ restore_save() {
 pad() {
   "${SSH[@]}" "printf '%s\n' $(printf "'%s' " "$@") > ReAmped3/input_script.tmp && mv -f ReAmped3/input_script.tmp ReAmped3/input_script.txt"
 }
+# BENCH_LAUNCHER=1: start through run.sh and the launcher with the player's
+# settings.ini (as the Steam shortcut does), not run_game.sh's fixed flags.
+# BENCH_GAMING=1: the same in Gaming Mode, started by Steam itself (Gaming Mode
+# shows only what Steam starts): the test flags go in through extra_args.txt
+# (read by run.sh) and screenshots come from gamescopectl.
+gaming=${BENCH_GAMING:-}
+launcher=${BENCH_LAUNCHER:-}; [ -n "$gaming" ] && launcher=1
+# The Deck's ReAmped 3 shortcut (run.sh) as a Steam link, DECK_STEAM_GAME in
+# tools/local.env (steam://rungameid/<shortcut id << 32 | 0x02000000>).
+STEAM_GAME=$DECK_STEAM_GAME
+[ -n "$gaming" ] && [ -z "$STEAM_GAME" ] && { echo "Set DECK_STEAM_GAME in tools/local.env"; exit 1; }
 shot() {
+  if [ -n "$gaming" ]; then
+    "${SSH[@]}" 'export GAMESCOPE_WAYLAND_DISPLAY=gamescope-0; f=$HOME/ReAmped3/bench_shot.png; rm -f $f; timeout 5 gamescopectl screenshot $f >/dev/null 2>&1; for i in $(seq 15); do [ -s $f ] && break; sleep 0.2; done; sleep 0.3; [ -s $f ]' &&
+      scp -q -i "$KEY" "$DECK_HOST:ReAmped3/bench_shot.png" $S/bench_shot.png
+    return
+  fi
   "${SSH[@]}" 'p=$(pgrep -u deck -x plasmashell | head -1); for v in $(tr "\0" "\n" < /proc/$p/environ | grep -E "^(DISPLAY|XAUTHORITY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR)="); do export "$v"; done; timeout 10 spectacle -b -n -f -o $HOME/ReAmped3/bench_shot.png >/dev/null 2>&1' &&
     scp -q -i "$KEY" "$DECK_HOST:ReAmped3/bench_shot.png" $S/bench_shot.png
 }
@@ -39,7 +55,11 @@ if [ "$label" = restore ]; then tools/deck.sh stop >/dev/null; restore_save; exi
 # other than our own transient service (nor the launcher open). The bench
 # starts the game with `tools/deck.sh run`, i.e. run_game.sh: straight into
 # the game, never the launcher.
-"${SSH[@]}" "pgrep -u deck -x plasmashell >/dev/null" || { echo "$label: Deck is not in Desktop Mode; not starting"; exit 1; }
+if [ -n "$gaming" ]; then
+  "${SSH[@]}" "pgrep -f '^gamescope ' >/dev/null" || { echo "$label: Deck is not in Gaming Mode; not starting"; exit 1; }
+else
+  "${SSH[@]}" "pgrep -u deck -x plasmashell >/dev/null" || { echo "$label: Deck is not in Desktop Mode; not starting"; exit 1; }
+fi
 tools/deck.sh stop >/dev/null
 "${SSH[@]}" "pgrep -f '[a]mped3(_launcher)?\.exe' >/dev/null" && { echo "$label: a ReAmped 3 game is running on the Deck; not starting"; exit 1; }
 # Set the player's save aside (once: an existing stash means an earlier bench
@@ -66,11 +86,35 @@ inhibit_on() {
 inhibit_off() {
   "${SSH[@]}" 'p=$(cat ReAmped3/bench_inhibit.pid 2>/dev/null) && kill -- -$p 2>/dev/null; kill $p 2>/dev/null; rm -f ReAmped3/bench_inhibit.pid'
 }
-on_exit() { inhibit_off; restore_save; }
-inhibit_on
+# The game (or, started through the launcher, the launcher that starts it) runs.
+alive() {
+  if [ -n "$launcher" ]; then "${SSH[@]}" "pgrep -f '[a]mped3(_launcher)?\.exe' >/dev/null"
+  else ! tools/deck.sh status | grep -q "not running"; fi
+}
+# A launcher-started game is ended like the player's: the game, then the launcher.
+stop_game() {
+  if [ -n "$launcher" ]; then
+    "${SSH[@]}" "pkill -f '[a]mped3\.exe'; sleep 3; pkill -f '[a]mped3_launcher\.exe'; systemctl --user stop reamped3 2>/dev/null; true"
+  else
+    tools/deck.sh stop >/dev/null
+  fi
+}
+on_exit() {
+  inhibit_off; restore_save
+  # (The capture loop is a transient service: made again, not restarted.)
+  [ -n "$gaming" ] && "${SSH[@]}" "rm -f ReAmped3/extra_args.txt; [ -f ReAmped3/capture.sh ] && { systemctl --user reset-failed reamped3-capture 2>/dev/null; systemd-run --user --quiet --unit=reamped3-capture bash \$HOME/ReAmped3/capture.sh; }; true"
+}
+[ -n "$gaming" ] || inhibit_on
 trap on_exit EXIT
 "${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt ReAmped3/cpu_profile.csv"
-tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true "$@" >/dev/null || exit 1
+flags="--ride_after 3 --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true $*"
+if [ -n "$gaming" ]; then
+  "${SSH[@]}" "cd ReAmped3 && { [ -f amped3.log ] && mv -f amped3.log amped3.log.prev; true; } && echo '$flags' > extra_args.txt && systemctl --user stop reamped3-capture 2>/dev/null; timeout 20 steam $STEAM_GAME >/dev/null 2>&1; true" || exit 1
+elif [ -n "$launcher" ]; then
+  "${SSH[@]}" "cd ReAmped3 && { [ -f amped3.log ] && mv -f amped3.log amped3.log.prev; true; } && systemctl --user reset-failed reamped3 2>/dev/null; systemd-run --user --quiet --collect --unit=reamped3 --working-directory=\$HOME/ReAmped3 bash -c './run.sh $flags > proton.log 2>&1'" || exit 1
+else
+  tools/deck.sh run --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true "$@" >/dev/null || exit 1
+fi
 
 # Time from the game's first log line (Proton itself takes a while to start).
 for i in $(seq 1 60); do "${SSH[@]}" "test -s ReAmped3/amped3.log" && break; sleep 2; done
@@ -82,7 +126,7 @@ if [ "$BENCH_ROUTE" = openworld ]; then
   # the map: hold up (the cursor goes to Loveseat), A, and A again to set off.
   menu=0
   while [ $(( $(date +%s) - start )) -lt 240 ]; do
-    tools/deck.sh status | grep -q "not running" && { echo "$label: game exited"; exit 1; }
+    alive || { echo "$label: game exited"; exit 1; }
     shot || continue
     if python3 tools/is_screen.py $S/bench_shot.png map; then
       # Stand at the top for OW_STAND s (10) first: the view over the park is
@@ -95,7 +139,20 @@ if [ "$BENCH_ROUTE" = openworld ]; then
       # BENCH_PROFILE: profile the stand (the script is only read between
       # steps, so not during the long stick step that follows).
       [ -n "$BENCH_PROFILE" ] && pad "profile 10"
-      ( sleep ${OW_STAND:-10}; pad a "stick 0 1 120000" ) &
+      # BENCH_MOVES=ride: riding as a player does - forward, carve left, jump
+      # with a flip, carve right, jump with a flip - in a fixed order for the
+      # whole ride (the same in every run), instead of straight down. Stick up
+      # is forward; down stops the rider.
+      if [ "$BENCH_MOVES" = ride ]; then
+        moves=(a)
+        for n in 1 2 3 4 5 6; do
+          moves+=("stick 0 1 3000" "stick -0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500"
+                  "stick 0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500")
+        done
+        ( sleep ${OW_STAND:-10}; pad "${moves[@]}" ) &
+      else
+        ( sleep ${OW_STAND:-10}; pad a "stick 0 1 120000" ) &
+      fi
       riding=1; break
     fi
     if [ $menu = 0 ] && python3 tools/is_screen.py $S/bench_shot.png menu; then
@@ -108,7 +165,7 @@ if [ "$BENCH_ROUTE" = openworld ]; then
 fi
 while [ "$BENCH_ROUTE" != openworld ] && sleep 1.5; do
   now=$(( $(date +%s) - start ))
-  tools/deck.sh status | grep -q "not running" && { echo "$label: game exited"; exit 1; }
+  alive || { echo "$label: game exited"; exit 1; }
   speed=""
   if [ $sped = 0 ] && [ $now -ge 14 ]; then
     log_has "guest time x8" && sped=1 || speed="speed 8"
@@ -124,7 +181,7 @@ while [ "$BENCH_ROUTE" != openworld ] && sleep 1.5; do
   pad ${speed:+"$speed"} a
   [ $now -gt 300 ] && { echo "$label: timeout"; pad "speed 1"; break; }
 done
-[ $riding = 1 ] || { tools/deck.sh stop >/dev/null; exit 1; }
+[ $riding = 1 ] || { stop_game; exit 1; }
 # BENCH_PIN="cpus-for-draws|cpus-for-the-rest" (e.g. "6|0-5"): pin the game's
 # GPU Draws thread and keep its other threads off those CPUs (taskset on our
 # own process only), to test thread placement.
@@ -159,14 +216,14 @@ elif [ -n "$BENCH_PROFILE" ]; then
 else
   sleep $((secs + 4))
 fi
-tools/deck.sh stop >/dev/null; sleep 2
+stop_game; sleep 2
 scp -q -i "$KEY" "$DECK_HOST:ReAmped3/swaptimes.csv" $S/swaptimes.csv || exit 1
 scp -q -i "$KEY" "$DECK_HOST:ReAmped3/clocks.csv" $S/clocks_bench.csv 2>/dev/null
 fps=$(echo "$@" | grep -o -- '--framerate=[0-9]*' | cut -d= -f2)
 python3 - "$label" "$secs" "${fps:-60}" $S/swaptimes.csv $S/clocks_bench.csv <<'PY'
 import csv, sys, statistics as st
 label, secs, fps, path, clocks = sys.argv[1], float(sys.argv[2]), int(sys.argv[3]), sys.argv[4], sys.argv[5]
-rows = [(float(a), float(b)) for a, b, *_ in list(csv.reader(open(path)))[1:]]
+rows = [(float(r[0]), float(r[1])) for r in list(csv.reader(open(path)))[1:] if len(r) >= 2]  # (a last line cut short when the game stops)
 end = rows[-1][0]
 ft = [f for t, f in rows if t > end - secs]
 s = sorted(ft, reverse=True)
