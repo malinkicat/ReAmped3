@@ -92,9 +92,17 @@ alive() {
   else ! tools/deck.sh status | grep -q "not running"; fi
 }
 # A launcher-started game is ended like the player's: the game, then the launcher.
+# Steam counts the game as running until its launch script, Proton and
+# Wine have all exited: launching again before that shows the player Steam's
+# "game already running" error (and the bench fails).
+wait_game_gone() {
+  "${SSH[@]}" "for i in \$(seq 60); do pgrep -f 'ReAmped3/(run|ReAmped3)\.sh|[a]mped3(_launcher)?\.exe|wineserver|SteamLaunch AppId=3772152186' >/dev/null || exit 0; sleep 1; done; exit 1" ||
+    echo "$label: the previous game still hadn't exited after 60 s" >&2
+}
 stop_game() {
   if [ -n "$launcher" ]; then
     "${SSH[@]}" "pkill -f '[a]mped3\.exe'; sleep 3; pkill -f '[a]mped3_launcher\.exe'; systemctl --user stop reamped3 2>/dev/null; true"
+    wait_game_gone
   else
     tools/deck.sh stop >/dev/null
   fi
@@ -107,6 +115,7 @@ on_exit() {
 [ -n "$gaming" ] || inhibit_on
 trap on_exit EXIT
 "${SSH[@]}" "rm -f ReAmped3/swaptimes.csv ReAmped3/input_script.txt ReAmped3/cpu_profile.csv"
+[ -n "$gaming" ] && wait_game_gone
 flags="--ride_after 3 --scripted_input=true --headless=true --headless_keyboard_text=Rider --swap_times=true $*"
 if [ -n "$gaming" ]; then
   "${SSH[@]}" "cd ReAmped3 && { [ -f amped3.log ] && mv -f amped3.log amped3.log.prev; true; } && { [ -f extra_args.txt ] && cp -f extra_args.txt extra_args.saved; true; } && echo '$flags' > extra_args.txt && systemctl --user stop reamped3-capture 2>/dev/null; timeout 20 steam $STEAM_GAME >/dev/null 2>&1; true" || exit 1

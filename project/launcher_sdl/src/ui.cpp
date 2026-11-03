@@ -732,9 +732,16 @@ void Launch(App& a) {
   }
   std::string args = BuildGameArgs(a.st, a.dist_dir, a.screen, extra);
   // V-Sync ticked at 60 FPS and below too (above 60 BuildGameArgs says so): no
-  // tearing. Windows only for now - under Proton it changes how vkd3d presents
-  // (to be measured on the Deck first).
+  // tearing.
   if (!a.wine && !a.st.allow_tearing) args += " --d3d12_allow_variable_refresh_rate_and_tearing=false";
+  // Under Proton (the Steam Deck, Linux), V-Sync ticked with a frame cap: real
+  // vsync presents, from the UI thread. Replacing the queued frame, gamescope
+  // dropped up to a sixth of the frames (judder when turning); measured on the
+  // Deck at 60: ~160 frames lost per 30 s -> ~10, no hitches. Not uncapped (it
+  // would outrun the display).
+  if (a.wine && !a.st.allow_tearing && SelectedFps(a.st, a.screen.hz) > 0) {
+    args += " --d3d12_present_vsync=true --d3d12_allow_variable_refresh_rate_and_tearing=false";
+  }
   std::string error;
   if (!sys::StartProcess(exe, BuildCommandLine(exe, args), a.dist_dir, a.game, error)) {
     a.status = "Could not start the game: " + error;
@@ -800,6 +807,14 @@ void Change(App& a, int delta, bool wrap) {
     case Item::Scaling: Step(SharpenValues(), a.st.sharpen, delta, wrap); break;
     case Item::Music: Step(MusicValues(), a.st.music, delta, wrap); break;
     case Item::UiSize: a.st.ui_size = std::clamp(a.st.ui_size + 10 * delta, 50, UiSizeMax(nullptr, a.deck)); break;
+    // The toggles, laid out in rows: left / right go along the row.
+    case Item::Fullscreen: case Item::SharpUi: case Item::ReampedLogo: case Item::Tearing: case Item::SkipIntro: {
+      const std::vector<Item> row = a.focus == Item::Tearing || a.focus == Item::SkipIntro
+                                        ? std::vector<Item>{Item::Tearing, Item::SkipIntro}
+                                        : std::vector<Item>{Item::Fullscreen, Item::SharpUi, Item::ReampedLogo};
+      const int i = int(std::find(row.begin(), row.end(), a.focus) - row.begin());
+      a.focus = row[size_t(std::clamp(i + (delta > 0 ? 1 : -1), 0, int(row.size()) - 1))];
+    } break;
     // The bottom buttons, left to right.
     case Item::Save: case Item::Controls: case Item::Quit: case Item::Ride: {
       const std::vector<Item> row = {Item::Save, Item::Controls, Item::Quit, Item::Ride};

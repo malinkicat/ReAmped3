@@ -20,6 +20,14 @@ export STEAM_COMPAT_DATA_PATH=$here/pfx
 # refresh late (60 FPS on the Deck OLED: 1% low ~30 FPS, against 58.8 FPS
 # without it, the same as Desktop Mode).
 export ENABLE_GAMESCOPE_WSI=0
+# More swap chain images for the vsync presents (the launcher asks for them
+# under Proton): vkd3d-proton then rarely waits for an image Xwayland /
+# gamescope still holds.
+export VKD3D_SWAPCHAIN_IMAGES=5
+# No xalia (Proton's controller helper for games without pad support: the
+# launcher and game have their own); its window starting a few seconds in
+# could take gamescope's focus.
+export PROTON_USE_XALIA=0
 # A Steam Deck by its board (Jupiter: LCD, Galileo: OLED), docked or not: the
 # launcher and game otherwise go by the 1280x800 screen.
 case "$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null)" in
