@@ -161,8 +161,10 @@ foreach ($dll in @("msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll
     "an ext4 SD card (not exFAT/FAT: Proton's prefix needs Linux file rights).",
     "Start it from Steam (on the Deck, Desktop or Gaming Mode). The game folder",
     "browser sees your Linux files under Z:. On the Steam Deck the first start",
-    "uses the Recommended settings. 'Your streaming app' works with any MPRIS player",
-    "(Spotify etc.). Saves: pfx/drive_c/users/steamuser/Documents/amped3.",
+    "picks the settings that run best there. 'Your streaming app' works with any",
+    "MPRIS player (Spotify etc.); it's paused when the game starts and quits, and",
+    "Spotify's hidden window is frozen while the game runs (music keeps playing).",
+    "Saves: pfx/drive_c/users/steamuser/Documents/amped3.",
     "Only tested on the Steam Deck so far."
 ) + $(if ($Release) { @() } else { @(
     "",
