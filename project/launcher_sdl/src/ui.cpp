@@ -1412,7 +1412,7 @@ std::string PackError(const std::string& error);
 void UpdatePack(App& a, bool valid) {
   if (a.pack && a.pack->finished) {
     a.pack->thread.join();
-    a.pack_message = a.pack->ok ? "Sharp menus ready" : PackError(a.pack->error);
+    a.pack_message = a.pack->ok ? "Sharp UI ready" : PackError(a.pack->error);
     if (a.pack->ok) a.logo_started = false;  // the logo again, from the sharp art
     a.pack.reset();
   }
@@ -1499,29 +1499,29 @@ void UpdateLogo(App& a, bool valid) {
   stbi_image_free(pixels);
 }
 
-// The sharp menus being made, in plain words: how far along, and how long.
+// The sharp UI being made, in plain words: how far along, and how long.
 std::string PackStatus(const App& a) {
   if (!a.pack) return a.pack_message;
   const int total = a.pack->progress.total, done = a.pack->progress.done;
-  if (total == 0) return "Making sharp menus: getting started...";
+  if (total == 0) return "Upscaling UI art: getting started...";
   std::string left;
   if (done >= 8 && done < total) {
     const double per = double(SDL_GetTicks() - a.pack->started_ms) / done;
     const int minutes = int(std::ceil(per * (total - done) / 60000.0));
     left = ", about " + std::to_string(minutes) + (minutes == 1 ? " minute" : " minutes") + " left";
   }
-  return "Making sharp menus: " + std::to_string(done * 100 / std::max(1, total)) + "% done" + left;
+  return "Upscaling UI art: " + std::to_string(done * 100 / std::max(1, total)) + "% done" + left;
 }
 
-// Why the sharp menus couldn't be made, in plain words.
+// Why the sharp UI couldn't be made, in plain words.
 std::string PackError(const std::string& error) {
-  if (error == "cancelled") return "Making sharp menus stopped. It carries on next time.";
+  if (error == "cancelled") return "Upscaling UI art stopped. It carries on next time.";
   if (error.find("Vulkan") != std::string::npos || error.find("upscaler") != std::string::npos)
-    return "Couldn't make sharp menus: your graphics card or driver couldn't run the enlarging tool "
-           "(it needs Vulkan; updating the graphics driver may help). The game uses its original menus.";
+    return "Couldn't upscale the UI art: your graphics card or driver couldn't run the enlarging tool "
+           "(it needs Vulkan; updating the graphics driver may help). The game uses its original UI.";
   if (error.find("GuiPackages") != std::string::npos)
-    return "Couldn't make sharp menus: the game's menu files weren't found in your game folder.";
-  return "Couldn't make sharp menus, so the game uses its original ones. Turn Sharp UI off and on to try again.";
+    return "Couldn't upscale the UI art: the game's UI files weren't found in your game folder.";
+  return "Couldn't upscale the UI art, so the game uses its original UI. Turn Sharp UI off and on to try again.";
 }
 
 void DrawMain(App& a) {
@@ -1588,8 +1588,8 @@ void DrawMain(App& a) {
              when + ", with Real-ESRGAN (an image upscaler, not an AI assistant; nothing leaves the PC). You can "
              "play meanwhile.";
     } else if (a.pack) {
-      text = PackStatus(a) + ". You can play meanwhile; they're used from your next start.";
-    } else if (!a.pack_message.empty() && a.pack_message != "Sharp menus ready") {
+      text = PackStatus(a) + ". You can play meanwhile; the sharp UI is used from your next start.";
+    } else if (!a.pack_message.empty() && a.pack_message != "Sharp UI ready") {
       text = a.pack_message;
     } else {
       text = "On: the menus, HUD, button icons and loading screens are sharp. Made with Real-ESRGAN, an image "
@@ -1705,8 +1705,8 @@ void DrawMain(App& a) {
     } else if (status.empty() && !a.two_columns && a.focus == Item::ReampedLogo) {
       status = kReampedLogoHint;
     } else if (status.empty() && a.focus == Item::SharpUi) {
-      status = a.st.sharp_ui ? "Sharp menus, HUD and button icons at high resolutions"
-                             : "Off: the game's original, blurry menus. On: sharp ones, made once (a few minutes)";
+      status = a.st.sharp_ui ? "Sharp menus, HUD, icons and loading screens at high resolutions"
+                             : "Off: the game's original, blurry UI. On: its art upscaled once (a few minutes)";
     } else if (status.empty() && a.st.sharp_ui) {
       status = PackStatus(a);
     }
