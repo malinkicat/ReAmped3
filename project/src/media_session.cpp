@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <fstream>
 #include <mutex>
@@ -69,6 +70,21 @@ using winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionM
 using winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus;
 
 std::atomic<int32_t> g_skip{0};  // pending skips: + next, - previous (one per press)
+// A skip wakes the watching loop at once (it checks every half second).
+// For 3 s after one it looks every 0.1 s, so the new track's name (and
+// its popup) follows soon after the player has it.
+std::mutex g_wake_mutex;
+std::condition_variable g_wake;
+std::atomic<int64_t> g_last_skip_ms{-1000000};
+int64_t NowMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+void Wait() {
+  const bool after_skip = NowMs() - g_last_skip_ms.load() < 3000;
+  std::unique_lock lock(g_wake_mutex);
+  g_wake.wait_for(lock, std::chrono::milliseconds(after_skip ? 100 : 500), [] { return g_skip.load() != 0; });
+}
 // Taking turns with the player (mix mode, music folder empty): the game's
 // song plays now (the player paused by us); ended early by "next".
 std::atomic<bool> g_game_turn{false}, g_end_game_turn{false};
@@ -246,6 +262,9 @@ void RunFromFile() {
   // The player starts by itself in game, as on Windows: once, as soon as
   // run.sh reports it not playing (again after choosing it again).
   bool autoplayed = false;
+  // The last skip while the game had the music (a player may start on it
+  // after its pause), and the last pause sent for that.
+  auto held_skip = std::chrono::steady_clock::time_point{}, repaused = held_skip;
   for (;;) {
     if (!PlayerIsSource()) {
       autoplayed = false;
@@ -272,25 +291,41 @@ void RunFromFile() {
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
       continue;
     }
-    for (int32_t skip = g_skip.exchange(0); skip; skip -= skip > 0 ? 1 : -1) command(skip > 0 ? "next" : "previous");
+    const bool title = TitleOwnsMusic();
+    // While the game has the music a skip changes the player's track but
+    // leaves it paused ("hold": Spotify starts playing on a skip).
+    for (int32_t skip = g_skip.exchange(0); skip; skip -= skip > 0 ? 1 : -1) {
+      command(skip > 0 ? (title ? "next hold" : "next") : (title ? "previous hold" : "previous"));
+      if (title) held_skip = std::chrono::steady_clock::now();
+    }
     if (const int v = MusicVolume(); v != volume && v >= 0) {
       volume = v;
       command(("volume " + std::to_string(v)).c_str());
-    }
-    const bool title = TitleOwnsMusic();
-    if (title && was_playing && !paused_by_us) {
-      command("pause");
-      paused_by_us = true;
-      REXLOG_INFO("Amped3: media session: paused for the game's music");
-    } else if (!title && paused_by_us) {
-      command("play");
-      paused_by_us = false;
-      REXLOG_INFO("Amped3: media session: resumed");
     }
     std::string status, text;
     if (std::ifstream in(folder / "media_session.txt"); in) {
       std::getline(in, status);
       std::getline(in, text);
+    }
+    if (title && was_playing && !paused_by_us) {
+      command("pause");
+      paused_by_us = true;
+      repaused = std::chrono::steady_clock::now();
+      REXLOG_INFO("Amped3: media session: paused for the game's music");
+    } else if (title && paused_by_us && status == "playing") {
+      // Started again by a skip (after the bridge's pause): paused again, for
+      // a few seconds after one. (Played by hand meanwhile: yours.) run.sh's
+      // report is up to a second behind a pause, so not again at once.
+      const auto now = std::chrono::steady_clock::now();
+      if (now - held_skip < std::chrono::seconds(5) && now - repaused > std::chrono::seconds(2)) {
+        repaused = now;
+        command("pause");
+        REXLOG_INFO("Amped3: media session: paused again (a skip started it; the game still has the music)");
+      }
+    } else if (!title && paused_by_us) {
+      command("play");
+      paused_by_us = false;
+      REXLOG_INFO("Amped3: media session: resumed");
     }
     // Paused by us for the game's music: still the player's music (the
     // runtime knows the title has it meanwhile).
@@ -306,7 +341,7 @@ void RunFromFile() {
       command("play start");  // from the start of its song (not mid-song from last time)
       REXLOG_INFO("Amped3: media session: started the player");
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    Wait();
   }
 }
 
@@ -340,6 +375,7 @@ void Run() {
     uint32_t game_turn_starts = 0;               // the game's song starts counted from
     auto game_turn_since = std::chrono::steady_clock::now();
     bool launch_checked = false;
+    auto held_skip = std::chrono::steady_clock::time_point{};  // the last skip while the game had the music
     for (;;) {
       if (!PlayerIsSource()) {
         // At launch with the game's soundtrack (or your files) chosen: a player
@@ -428,11 +464,23 @@ void Run() {
         for (int32_t skip = g_skip.exchange(0); skip; skip -= skip > 0 ? 1 : -1) {
           if (skip > 0) chosen->TrySkipNextAsync().get();
           else chosen->TrySkipPreviousAsync().get();
+          if (title) held_skip = std::chrono::steady_clock::now();
         }
         if (title && !paused_by_us && is_playing(*chosen)) {
           chosen->TryPauseAsync().get();
           paused_by_us = *chosen;
           REXLOG_INFO("Amped3: media session: paused for the game's music");
+        } else if (title && paused_by_us &&
+                   std::chrono::steady_clock::now() - held_skip < std::chrono::seconds(5)) {
+          // A skip while the game has the music: Spotify plays on one, so the
+          // player we paused is paused again (only that one, and only for a
+          // few seconds after a skip: played by hand meanwhile, it's yours).
+          for (const auto& session : manager.GetSessions()) {
+            if (session.SourceAppUserModelId() == paused_by_us->SourceAppUserModelId() && is_playing(session)) {
+              session.TryPauseAsync().get();
+              REXLOG_INFO("Amped3: media session: paused again (a skip started it; the game still has the music)");
+            }
+          }
         }
         // The player starts by itself: no switching to it to press play.
         if (!autoplayed && !title && !g_game_turn && !is_playing(*chosen)) {
@@ -495,7 +543,7 @@ void Run() {
         was_playing = reported;
       }
       ReportToRuntime(reported, last_text);
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      Wait();
     }
   } catch (const winrt::hresult_error& e) {
     REXLOG_WARN("Amped3: media session: not available ({:08X})", uint32_t(e.code().value));
@@ -565,6 +613,9 @@ void Skip(int32_t delta) {
   const int32_t step = delta < 0 ? -1 : 1;
   while (std::abs(pending + step) <= 5 && !g_skip.compare_exchange_weak(pending, pending + step)) {
   }
+  g_last_skip_ms = NowMs();
+  { std::lock_guard lock(g_wake_mutex); }
+  g_wake.notify_one();
 }
 
 }  // namespace amped3::media_session

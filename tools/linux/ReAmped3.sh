@@ -37,10 +37,16 @@ mkdir -p "$STEAM_COMPAT_DATA_PATH"
 echo "proton: $proton"
 
 # "Music: your streaming app": the game runs under Proton and can't see Linux
-# music players, so pass the playing MPRIS player (Spotify first) on once a
-# second as media_session.txt ("playing" or "stopped", then "Artist - Title"),
+# music players, so pass the playing MPRIS player (Spotify first) on about once
+# a second as media_session.txt ("playing" or "stopped", then "Artist - Title"),
 # and carry out the game's requests in media_command.txt (next, previous,
-# pause, play, volume N).
+# "next hold" / "previous hold" = skip but stay paused, pause, play, volume N)
+# as soon as they come (checked every 0.1 s).
+# While the game runs it takes every core: each program started here is slow
+# to start then (a look at the players that started a dozen took 2.5 s, and
+# skips waited for it), so this uses bash's own matching and waits, looks for
+# new players and checks the game is still there every few seconds, and
+# carries out a request before anything else.
 wait_game() {
   sleep 5
   until pgrep -f '[a]mped3\.exe' >/dev/null; do
@@ -52,19 +58,54 @@ wait_game() {
   command -v gdbus >/dev/null || exit 0
   wait_game || exit 0
   q() { gdbus call --session --dest "$1" --object-path /org/mpris/MediaPlayer2 "${@:2}" 2>/dev/null; }
-  while pgrep -f '[a]mped3\.exe' >/dev/null; do
-    players=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
-      --method org.freedesktop.DBus.ListNames 2>/dev/null | grep -o "org\.mpris\.MediaPlayer2\.[A-Za-z0-9_.-]*" | sort -r)
-    playing="" first=""
-    for p in $(echo "$players" | grep -i spotify) $(echo "$players" | grep -vi spotify); do
-      [ -n "$first" ] || first=$p
-      q "$p" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus | grep -q Playing && { playing=$p; break; }
+  exec {tick}<> <(:)                  # never has data: read -t on it waits
+  nap() { read -t "$1" -u "$tick"; }  # without starting a program
+  players="" playing="" first="" paused_player="" reported="" scanned=-99 alive=$SECONDS
+  # Spotify's window keeps drawing behind the game: its renderer process took
+  # 60-80% of a core while it played (25% paused) and cost the game about 17
+  # FPS of 1% low on the Deck. Frozen while the game runs (its music and media
+  # controls are the main process's and carry on), thawed when the game goes,
+  # however it goes (and at the next start, after a crash of this script).
+  frozen=""
+  freeze() {
+    local r
+    for r in $(pgrep -f 'spotify --type=renderer'); do
+      [[ " $frozen " == *" $r "* ]] || { kill -STOP "$r" 2>/dev/null && frozen+=" $r"; }
     done
-    # The game appends one command a line: take the file (new ones go to a
-    # fresh one) and carry them out in order.
-    if [ -f media_command.txt ] && mv -f media_command.txt media_command.work 2>/dev/null; then
-      sleep 0.2  # a write the game had already begun lands in the taken file first
-      while IFS= read -r cmd || [ -n "$cmd" ]; do
+  }
+  thaw() { [ -n "$frozen" ] && kill -CONT $frozen 2>/dev/null; frozen=""; }
+  trap thaw EXIT
+  trap exit TERM INT HUP
+  pkill -CONT -f 'spotify --type=renderer'
+  find_players() {
+    local names p
+    names=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+      --method org.freedesktop.DBus.ListNames 2>/dev/null)
+    players=""
+    for p in $names; do  # Spotify first
+      p=${p//[\'\[\](),]/}
+      case "$p" in org.mpris.MediaPlayer2.*spotify*) players="$p $players" ;; org.mpris.MediaPlayer2.*) players+=" $p" ;; esac
+    done
+    scanned=$SECONDS
+    freeze  # (Spotify started meanwhile, or a new renderer)
+  }
+  # The playing one (Spotify first), and the first one open.
+  look() {
+    local p
+    playing="" first=""
+    for p in $players; do
+      [ -n "$first" ] || first=$p
+      [[ $(q "$p" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus) == *Playing* ]] &&
+        { playing=$p; break; }
+    done
+  }
+  # The game appends one request a line: take the file (new ones go to a
+  # fresh one) and carry them out in order.
+  requests() {
+    [ -f media_command.txt ] && mv -f media_command.txt media_command.work 2>/dev/null || return 1
+    nap 0.05  # a write the game had already begun lands in the taken file first
+    local cmd p v
+    while IFS= read -r cmd || [ -n "$cmd" ]; do
       cmd=${cmd%$'\r'}
       # Nothing playing: the player we paused, else the first one open
       # (Spotify first), e.g. Spotify just opened and not started yet.
@@ -74,33 +115,68 @@ wait_game() {
           q "$p" --method org.mpris.MediaPlayer2.Player.$([ "$cmd" = next ] && echo Next || echo Previous) >/dev/null
           # A skip with it stopped (not paused for the game's music): play too.
           [ -z "$playing" ] && [ -z "$paused_player" ] && { q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; } ;;
-        pause) [ -n "$playing" ] && { q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=$playing; playing=""; } ;;
+        next\ hold|previous\ hold)
+          # The game has the music (a video, a scripted song): Spotify plays
+          # on a skip, so pause it again straight after.
+          q "$p" --method org.mpris.MediaPlayer2.Player.$([ "$cmd" = "next hold" ] && echo Next || echo Previous) >/dev/null
+          q "$p" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; paused_player=${paused_player:-$p}; playing="" ;;
+        # (The player paused first stays the one to resume: another one paused
+        # meanwhile doesn't take its place.)
+        pause) [ -n "$playing" ] && { q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null
+          [ -z "$paused_player" ] && paused_player=$playing; playing=""; } ;;
         play|play\ start) [ -z "$playing" ] && {
           # "play start": the game starting it for a ride, from the start of the song.
           [ "$cmd" = "play start" ] && q "$p" --method org.mpris.MediaPlayer2.Player.Seek -- -9000000000 >/dev/null
           q "$p" --method org.mpris.MediaPlayer2.Player.Play >/dev/null; playing=$p; paused_player=""; } ;;
         volume\ *) v=${cmd#volume }
-          q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume "<$(awk "BEGIN{print $v/100}")>" >/dev/null ;;
+          [[ $v =~ ^[0-9]+$ ]] && q "$p" --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Volume \
+            "<$(( v / 100 )).$(printf '%02d' $(( v % 100 )))>" >/dev/null ;;
       esac
-      done < media_command.work
-      rm -f media_command.work
-    fi
+    done < media_command.work  # (the next one takes its place)
+  }
+  report() {
+    local m title="" artist="" now
+    now=$'stopped\n'
     if [ -n "$playing" ]; then
       m=$(q "$playing" --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata)
-      title=$(echo "$m" | sed -n -e "s/.*'xesam:title': <'\([^']*\)'>.*/\1/p" -e "s/.*'xesam:title': <\"\([^\"]*\)\">.*/\1/p" | head -1)
-      artist=$(echo "$m" | sed -n -e "s/.*'xesam:artist': <\['\([^']*\)'.*/\1/p" -e "s/.*'xesam:artist': <\[\"\([^\"]*\)\".*/\1/p" | head -1)
-      printf 'playing\n%s\n' "${artist:+$artist - }$title" > .media_session.tmp
-    else
-      printf 'stopped\n\n' > .media_session.tmp
+      local t1="'xesam:title': <'([^']*)'>" t2="'xesam:title': <\"([^\"]*)\">"
+      local a1="'xesam:artist': <\['([^']*)'" a2="'xesam:artist': <\[\"([^\"]*)\""
+      [[ $m =~ $t1 || $m =~ $t2 ]] && title=${BASH_REMATCH[1]}
+      [[ $m =~ $a1 || $m =~ $a2 ]] && artist=${BASH_REMATCH[1]}
+      now="playing"$'\n'"${artist:+$artist - }$title"
     fi
-    mv -f .media_session.tmp media_session.txt
-    sleep 1
+    # Written only when it changes (the game reads it twice a second).
+    [ "$now" = "$reported" ] && return
+    printf '%s\n' "$now" > .media_session.tmp && mv -f .media_session.tmp media_session.txt && reported=$now
+  }
+  # The game has started: a player playing is paused (with the streaming app
+  # as the game's music, the game starts it again for a ride).
+  find_players
+  look
+  [ -n "$playing" ] && { q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null; playing=""; }
+  while :; do
+    # A request first, with what the last look found (the player has the
+    # new track's name in under 0.1 s).
+    requests && { nap 0.1; look; report; }
+    if (( SECONDS - alive >= 2 )); then
+      pgrep -f '[a]mped3\.exe' >/dev/null || break
+      alive=$SECONDS
+    fi
+    (( SECONDS - scanned >= 5 )) || [ -z "$players" ] && find_players
+    look
+    report
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      [ -f media_command.txt ] && break
+      nap 0.1
+    done
   done
-  # The game quit with the player as its music (its last request): pause it.
-  if grep -qx 'pause' media_command.txt 2>/dev/null && [ -n "$playing" ]; then
-    q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null
-  fi
-  rm -f media_session.txt media_command.txt
+  # The game has gone (quit, closed or killed): its last requests, and the
+  # player is left paused however it ended (paused at the start and at the end).
+  look
+  requests
+  look
+  [ -n "$playing" ] && q "$playing" --method org.mpris.MediaPlayer2.Player.Pause >/dev/null
+  rm -f media_session.txt media_command.txt media_command.work
 ) >/dev/null 2>&1 &
 bridge=$!
 
@@ -116,4 +192,5 @@ pgrep -u "$(id -u)" -x plasmashell >/dev/null && command -v kde-inhibit >/dev/nu
 "${inhibit[@]}" "$proton" run "$here/amped3_launcher.exe" --log_file=amped3.log "$@"
 status=$?
 wait "$bridge"
+pkill -CONT -f 'spotify --type=renderer'  # (the bridge thaws it; in case it couldn't)
 exit $status
