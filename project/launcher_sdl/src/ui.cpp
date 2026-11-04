@@ -319,19 +319,6 @@ std::string ResLabel(const App& a, const std::string& v) {
   }
   return "Match the display";
 }
-// What a resolution choice means: the size the game draws at and the screen's.
-std::string ResolutionHint(const App& a) {
-  const RenderSize size = RenderSizes(a.st, a.screen);
-  std::string hint = "Draws at " + std::to_string(size.draw_w) + "x" + std::to_string(size.draw_h) + ", shown at " +
-                     std::to_string(size.out_w) + "x" + std::to_string(size.out_h);
-  if (size.draw_w > size.out_w) hint += " (sharper, slower)";
-  if (size.out_h > 0) {
-    const double aspect = double(size.out_w) / size.out_h;
-    if (aspect > 16.0 / 9.0 * 1.02) hint += ". Ultrawide: a wider view, menus centred";
-    else if (aspect < 16.0 / 9.0 * 0.98) hint += ". 16:10: a taller view, no bars";
-  }
-  return hint + ".";
-}
 // With single-pass rendering off the game draws with its own 2x MSAA, so the
 // choices are that alone or a filter on top of it.
 std::string AALabel(const std::string& v, bool single_pass) {
@@ -379,29 +366,9 @@ std::pair<std::string, std::string> Explain(App& a) {
         a.version_tested = IsTestedGameVersion(a.st.game_path);
       }
       return {"GAME FOLDER",
-              std::string(a.version_tested ? "This is Amped 3 (USA / NTSC-U), the version ReAmped 3 is made from and "
-                                             "tested with. "
-                                           : "This isn't the USA (NTSC-U) version ReAmped 3 is made from: untested. ") +
-                  "Other versions (PAL) should work too, as ReAmped 3 has the game's code built in and reads only its "
-                  "data files from here, but only the USA one is tested."};
-    }
-    case Item::Resolution: return {"RESOLUTION", ResolutionHint(a)};
-    case Item::FrameRate:
-    case Item::CustomFps: {
-      std::string hint;
-      if (a.st.fps_choice == kFrameGenFps) {
-        hint = "Experimental: every other frame made by AMD FSR 3 frame generation: smoother, less power; about a "
-               "frame more input lag.";
-      } else if (a.st.fps_choice == 30) {
-        hint = "30 FPS is the game's own frame rate on the Xbox 360.";
-      } else if (a.deck && a.st.fps_choice == 40) {
-        hint = "Set the Deck's refresh rate to 40 Hz in Quick Access for smooth 40.";
-      } else if (a.deck && a.st.fps_choice == 90) {
-        hint = "Smoothest in light scenes; dips in busy areas.";
-      } else if (!a.deck && a.st.fps_choice == kAutoFps) {
-        hint = "Caps just under your display's refresh rate, for G-Sync / FreeSync.";
-      }
-      return {"FRAME RATE", hint + (hint.empty() ? "" : " ") + "The game runs at the right speed at every setting."};
+              a.version_tested ? "This is Amped 3 (USA / NTSC-U), the version ReAmped 3 is made from and tested with."
+                               : "This isn't the USA (NTSC-U) version ReAmped 3 is made from. It should still work, "
+                                 "as only the game's data files are read from here, but it hasn't been tested."};
     }
     case Item::Fullscreen:
       return {"FULLSCREEN", "On: the game fills the display. Off: it plays in a window you can move."};
@@ -410,16 +377,14 @@ std::pair<std::string, std::string> Explain(App& a) {
       return {"SKIP INTRO MOVIES", "On: the game starts without the 2K and Indie Built movies, straight to the loading "
                                    "screen and the title. Off: they play first, as on the Xbox 360."};
     case Item::Tearing:
-      return {"V-SYNC", a.deck ? "On: every frame waits for the screen, so the picture never tears. Off: a little "
-                                 "less input lag, with some tearing."
-                               : "On: every frame waits for the display, so the picture never tears. Off: less input "
-                                 "lag; with a G-Sync / FreeSync display there's no tearing either (frame rate Auto "
-                                 "keeps it just under the refresh rate)."};
+      return {"V-SYNC", a.deck ? "On: no tearing. Off: slightly less input lag, but the picture can tear."
+                               : "On: no tearing. Off: slightly less input lag, but the picture can tear (not on a "
+                                 "G-Sync / FreeSync display while the frame rate stays under its refresh rate)."};
     case Item::SinglePass:
       return {"FAST SINGLE-PASS RENDERING",
               "The Xbox 360 drew each frame in three strips (tiles) to fit its small video memory, so the scene was "
-              "drawn three times. On: drawn once, which more than doubles the frame rate in busy scenes (the Steam "
-              "Deck stays near 60 FPS in the busiest spots only with it); SMAA smooths the edges. Off: the original "
+              "drawn three times. On: drawn once, which more than doubles the frame rate in busy scenes and keeps the "
+              "Steam Deck near 60 FPS in the busiest spots; SMAA smooths the edges. Off: the original "
               "three-strip drawing with the game's own 2x MSAA anti-aliasing, much slower."};
     case Item::AA:
       if (!a.st.single_pass) {
@@ -457,10 +422,9 @@ std::pair<std::string, std::string> Explain(App& a) {
     case Item::UiSize:
       return {"MENUS AND HUD SIZE",
               std::string("100% is the size the game was made for, at any resolution; smaller leaves more of "
-                          "the picture free. Each part shrinks towards its own corner or edge. A / Enter: the "
-                          "menus, HUD, help tips, radio popup and button legends on their own") +
-                  (a.deck ? " (on the Deck those overlays can also be larger, up to 150%, to read them on its "
-                            "screen)"
+                          "the picture free. Each part shrinks towards its own corner or edge. A / Enter: set the "
+                          "menus, HUD, help tips, radio popup and button legends separately") +
+                  (a.deck ? " (on the Deck they can also go up to 150%, easier to read on its screen)"
                           : "") +
                   ". Applies when the game starts."};
     case Item::Save: return {"SAVE", "Saves these settings now (RIDE and Quit save them too)."};
@@ -1582,9 +1546,9 @@ void DrawMain(App& a) {
     std::string text;
     const char* when = a.deck ? "about 15-20 minutes on the Steam Deck" : "about 5 minutes";
     if (!a.st.sharp_ui) {
-      text = std::string("Makes the menus, HUD, button icons and loading screens sharp at high resolutions "
-                         "(the game's own are blurry above 720p). Turn it on and they're made once, from your "
-                         "game files, on this PC: ") +
+      text = std::string("Upscales the menus, HUD, button icons and loading screens for high resolutions "
+                         "(the game's own are blurry above 720p). Turn it on and it's done once, on this PC, from "
+                         "your game files: ") +
              when + ", with Real-ESRGAN (an image upscaler, not an AI assistant; nothing leaves the PC). You can "
              "play meanwhile.";
     } else if (a.pack) {
@@ -1698,15 +1662,13 @@ void DrawMain(App& a) {
       status = "A / Enter: choose your music folder";
     } else if (status.empty() && a.focus == Item::Music && a.st.music == "system") {
       status = "Start Spotify (or another music app); the game's music pauses while it plays";
-    } else if (status.empty() && !a.two_columns && a.focus == Item::Resolution) {
-      status = ResolutionHint(a);
     } else if (status.empty() && !a.two_columns && a.focus == Item::Scaling) {
       status = kSharpenHint;
     } else if (status.empty() && !a.two_columns && a.focus == Item::ReampedLogo) {
       status = kReampedLogoHint;
     } else if (status.empty() && a.focus == Item::SharpUi) {
       status = a.st.sharp_ui ? "Sharp menus, HUD, icons and loading screens at high resolutions"
-                             : "Off: the game's original, blurry UI. On: its art upscaled once (a few minutes)";
+                             : "On: the game's UI upscaled once, in a few minutes. Off: the original, blurry UI";
     } else if (status.empty() && a.st.sharp_ui) {
       status = PackStatus(a);
     }

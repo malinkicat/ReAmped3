@@ -465,13 +465,10 @@ int ChooseInternalScale(int display_height, bool round_up) {
   return 1;
 }
 
-int AutoFpsFor(int hz, bool vrr) {
-  if (hz <= 61) return 60;
-  return vrr ? hz - 3 : hz;
-}
+int AutoFpsFor(int hz) { return hz > 0 ? hz : 60; }
 
 int SelectedFps(const Settings& s, int hz) {
-  if (s.fps_choice == kAutoFps) return AutoFpsFor(hz, s.allow_tearing);
+  if (s.fps_choice == kAutoFps) return AutoFpsFor(hz);
   if (s.fps_choice == kFrameGenFps) return hz > 61 ? hz / 2 : 30;
   if (s.fps_choice >= 0) return s.fps_choice;
   return std::min(1000, std::max(30, s.custom_fps));

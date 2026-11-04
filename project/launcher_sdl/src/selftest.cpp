@@ -70,9 +70,9 @@ void CommandLines() {
       {"4K, 60, defaults", Make("4k", 60, true, true, "none", 30), {3840, 2160, 60}, {},
        "--game_data_root=\"C:\\Games\\Amped 3\" --resolution_scale=3 --draw_resolution_scale_x=3 --draw_resolution_scale_y=3"
        " --window_width=3840 --window_height=2160 --fullscreen=true --swap_post_effect=none --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=60" + tail},
-      {"match the display 1440p, auto 144 Hz VRR, windowed", Make("native", kAutoFps, false, true, "fxaa", 30), {2560, 1440, 144}, {},
+      {"match the display 1440p, auto 144 Hz, tearing allowed, windowed", Make("native", kAutoFps, false, true, "fxaa", 30), {2560, 1440, 144}, {},
        "--game_data_root=\"C:\\Games\\Amped 3\" --resolution_scale=2 --draw_resolution_scale_x=2 --draw_resolution_scale_y=2"
-       " --window_width=2560 --window_height=1440 --fullscreen=false --swap_post_effect=fxaa --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=141" + tail},
+       " --window_width=2560 --window_height=1440 --fullscreen=false --swap_post_effect=fxaa --present_effect=cas --present_cas_additional_sharpness=0.3 --framerate=144" + tail},
       {"1080p, auto 144 Hz vsync, play_diag args", Make("1080p", kAutoFps, true, false, "none", 30), {1920, 1080, 144},
        {"--frame_times=true", "--fps_log=true"},
        "--game_data_root=\"C:\\Games\\Amped 3\" --resolution_scale=2 --draw_resolution_scale_x=2 --draw_resolution_scale_y=2"
@@ -160,7 +160,7 @@ void Scales() {
   for (auto& c : up) {
     Check(ChooseInternalScale(c[0], true) == c[1], "ChooseInternalScale(" + std::to_string(c[0]) + ", up)");
   }
-  Check(AutoFpsFor(60, true) == 60 && AutoFpsFor(144, true) == 141 && AutoFpsFor(144, false) == 144 && AutoFpsFor(0, true) == 60,
+  Check(AutoFpsFor(60) == 60 && AutoFpsFor(144) == 144 && AutoFpsFor(165) == 165 && AutoFpsFor(0) == 60,
         "AutoFpsFor");
 }
 

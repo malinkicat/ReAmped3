@@ -10,7 +10,7 @@
 namespace launcher {
 
 // Frame-rate choices (values as in settings.ini, plus two markers):
-// 0 = unlimited, kAutoFps = just under the display's refresh rate (VRR),
+// 0 = unlimited, kAutoFps = the display's refresh rate,
 // kCustomFps = Settings::custom_fps, kFrameGenFps = half the display's refresh
 // rate, each frame followed by a generated one (AMD FSR 3 frame generation).
 constexpr int kFrameGenFps = -3;
@@ -164,7 +164,7 @@ int ChooseInternalScale(int display_height, bool round_up = false);
 // With tearing allowed (VRR), a cap 3 below the refresh rate keeps VRR
 // engaged (144 Hz -> 141); with vsync, the refresh rate itself. 60 Hz
 // displays (and unknown ones) get 60.
-int AutoFpsFor(int hz, bool vrr);
+int AutoFpsFor(int hz);
 // The frame-rate cap passed to the game (0 = unlimited); custom: 30 to 1000.
 int SelectedFps(const Settings& s, int hz);
 
