@@ -113,19 +113,10 @@ ReXGlue runtime: our fork of [rexglue-sdk](https://github.com/rexglue/rexglue-sd
 
 Nothing from the game is shipped. The patched menus, the loading screen and the optional logo are all made on your PC from your own game files.
 
-## Known issues
-
-- Above 30 FPS the other riders sometimes wipe out at the start of a run.
-- No frame generation yet. The game only gives us camera motion, so riders and the HUD double up.
-- Only the USA disc has been tested.
-- The busiest spots are CPU limited, around 140 FPS on a fast PC.
-- The dark shape behind some menu titles (like LOAD A RIDER) looks a bit jagged at 4K. It's a rough mesh in the game itself.
-- Steam Deck: short pauses on loading screens. Riding itself stays smooth.
-
 ## What you need
 
 - Windows 11 x64, a CPU with AVX2 and a Direct3D 12 graphics card. Or a Steam Deck, or a Linux PC with Steam and Proton 10.
-- Your own Amped 3 disc, extracted (the folder with `default.xex`).
+- Your own Amped 3 disc, extracted (the folder with `default.xex`). Only the USA (NTSC-U) version has been tested; others should work too.
 - For Sharp UI: a graphics driver with Vulkan (the upscaler uses it), about 1 GB free while it builds, and around 4 GB of RAM for the game with it on (16 GB in the PC is plenty). It lives in `textures` next to the launcher.
 
 ## Building from source
