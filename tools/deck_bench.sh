@@ -155,7 +155,9 @@ if [ "$BENCH_ROUTE" = openworld ]; then
       if [ "$BENCH_MOVES" = ride ]; then
         moves=(a)
         for n in 1 2 3 4 5 6; do
-          moves+=("stick 0 1 3000" "stick -0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500"
+          # BENCH_SKIP=1: also the next song (D-pad right) once a cycle, to
+          # see what a song change costs.
+          moves+=("stick 0 1 3000" ${BENCH_SKIP:+right} "stick -0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500"
                   "stick 0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500")
         done
         ( sleep ${OW_STAND:-10}; pad "${moves[@]}" ) &
