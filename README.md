@@ -29,7 +29,7 @@ Launcher
 - Frame rate on PC: 30 (the original), 60, 90, 100, 120, 144, Auto (matches your display's refresh rate), your own cap anywhere from 30 to 1000, or unlocked. On the Steam Deck: 30, 40, 60, 90, your own cap or unlocked.
 - Anti-aliasing (SMAA, FXAA or none) and sharpening.
 - Fast single-pass rendering, on by default (see Performance). Turn it off and you get the game's own 2x MSAA back instead.
-- Sharp UI: the game's own menus, fonts and HUD art upscaled 4x on your PC (2x on the Deck) with Real-ESRGAN. It's an offline image upscaler, runs once (about 5 minutes, and you can ride while it works) and keeps the result. Nothing gets downloaded or uploaded and we don't ship any game art.
+- Sharp UI: the game's own menus, fonts, HUD, button icons and loading screens upscaled 4x on your PC (2x on the Deck) with Real-ESRGAN. It's an offline image upscaler, runs once (about 5 minutes, and you can ride while it works) and keeps the result. Nothing gets downloaded or uploaded and we don't ship any game art.
 - UI size: shrink everything, or each part on its own (menus, HUD, help tips, radio popup, button legends). On the Deck the HUD and tips can go up to 150%.
 - Controls: remap the pad and keyboard, and each row tells you what it does in the game.
 - Music and the ReAmped logo option. On a Steam Deck the first start picks the settings that run best there.
