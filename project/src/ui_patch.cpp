@@ -9,9 +9,6 @@
 //   string tables. In-ride Global Options (Game.rui GlobalOptionsMenu2): item 2,
 //   Cheat Codes, always disabled while riding, becomes "ReAmped 3": enabled,
 //   A runs $Select(ReAmped3) (options_hooks.cpp opens the menu).
-// - Front end (Shell.rui LoadCharacter, where Start goes): Y runs
-//   PushScene('ReAmped3') ($Select only works on list items), and the
-//   button legend says so.
 // - Base.rui StringTables\<lang>\StringTable.dat gain ReAmped3_Options.
 // - resources.dir (a ZIP at the game root) indexes each package's entries, so
 //   it's re-indexed for the changed packages.
@@ -84,7 +81,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Bytes = std::vector<uint8_t>;
-constexpr int kVersion = 31;  // bump when the patches change (31: radio slide scaled)
+constexpr int kVersion = 32;  // bump when the patches change (32: no Y shortcut in the front end)
 
 uint32_t Be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 uint16_t Le16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
@@ -1183,7 +1180,7 @@ std::u16string RowPlaceholder(char16_t kind, int n) {
 }
 
 // scene: the controls table whose A button runs `a_command` also runs
-// `command` on `button` (e.g. Load a Rider: Y opens ReAmped 3).
+// `command` on `button` (e.g. the pause screen: Back runs the quick save).
 bool AddButton(LuaFunction& f, const char* a_command, const char* button, const char* command,
                const char* match_key = "AButton") {
   const auto pcs = SetTablePcs(f, match_key, a_command);
@@ -1214,13 +1211,6 @@ const std::pair<const char*, const char16_t*> kPcStrings[] = {
     {"RiderInfoNotOnlineMsg", u"Leaderboards are not available."},
     {"Legend_XBOXLive_TextNormal", u" Online"},
 };
-
-// Load a Rider's button legends ("A Select  RB Delete Rider") gain the Y
-// button: 0x0D is the Y glyph in the game's fonts.
-constexpr const char* kLoadRiderLegends[] = {"LoadCharacter_HelpText", "LoadCharacter_HelpText2",
-                                             "LoadCharacter_HelpTextB", "LoadCharacter_HelpText2B",
-                                             "Options_HelpText"};  // the main menu's Options
-constexpr char16_t kLegendY[] = u" \x0DReAmped 3";
 
 // Quick save: Back in a menu (the pause screen, the Options page, our pages)
 // runs ReAmped3_resume[_pause]: options_hooks.cpp saves and backs out page by
@@ -1370,31 +1360,9 @@ bool Build(const fs::path& game, const fs::path& out) {
         return false;
       }
     }
-    for (const char* id : kLoadRiderLegends) {
-      if (!SetString(d, id, [](const std::u16string* old) -> std::optional<std::u16string> {
-            if (!old) return std::nullopt;
-            return *old + kLegendY;
-          })) {
-        return false;
-      }
-    }
     return true;
   };
-  // The front end: Y on Load a Rider (Start goes straight there) opens the
-  // ReAmped 3 screen.
-  std::map<std::string, Patch> shell_patches = {
-      {"Scenes/LoadCharacter.scene",
-       [](Bytes& d) {
-         return EditLua(d, [](LuaFunction& f) { return AddButton(f, "$SelectGame", "YButton", "PushScene('ReAmped3')"); });
-       }},
-      // And Y on the main menu's Options.
-      {"Scenes/GlobalOptionsMenu.scene",
-       [](Bytes& d) {
-         return EditLua(d, [](LuaFunction& f) {
-           return AddButton(f, "$Back", "YButton", "PushScene('ReAmped3')", "BButton");
-         });
-       }},
-  };
+  std::map<std::string, Patch> shell_patches;
   AddSizePatches(*base_rui, base_patches);
   AddSizePatches(*shell_rui, shell_patches);
   const auto new_game = RebuildZip(*game_rui, game_patches, game_adds);
