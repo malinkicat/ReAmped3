@@ -10,6 +10,9 @@
 //                                         license screen (testing)
 //   amped3_launcher.exe --open-controls   the launcher on its Controls page (testing)
 //   amped3_launcher.exe --build-ui-pack GAME_DIR TEXTURES_DIR [SCALE]
+//   amped3_launcher.exe --ui-pack-up-to-date GAME_DIR TEXTURES_DIR [SCALE]
+//                                         exit 0 if the launcher takes that
+//                                         pack as made, 1 if it makes it again
 //                                         make the sharp UI pack from a console
 //                                         (ui_pack.h; testing)
 #include <windows.h>
@@ -62,6 +65,19 @@ int RunInstallVendor(const std::string& id, bool accepted) {
   return vendor::Installed(*p, dist) ? 0 : 1;
 }
 
+// --ui-pack-up-to-date: whether the launcher would take the pack in
+// TEXTURES_DIR as made (exit 0) or make it again (exit 1).
+int RunUiPackUpToDate(const std::string& game_dir, const std::string& textures_dir, int scale) {
+  sys::AttachParentConsole();
+  uipack::Options o;
+  o.game_dir = game_dir;
+  o.textures_dir = textures_dir;
+  o.scale = scale;
+  const bool ok = uipack::UpToDate(o);
+  std::printf("%s\n", ok ? "up to date" : "to be made");
+  return ok ? 0 : 1;
+}
+
 int RunBuildUiPack(const std::string& game_dir, const std::string& textures_dir, int scale) {
   sys::AttachParentConsole();
   uipack::Options o;
@@ -91,6 +107,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     if (args[i] == "--selftest") return RunSelfTest();
     if (args[i] == "--build-ui-pack" && i + 2 < args.size()) {
       return RunBuildUiPack(args[i + 1], args[i + 2], i + 3 < args.size() ? std::atoi(args[i + 3].c_str()) : 4);
+    }
+    if (args[i] == "--ui-pack-up-to-date" && i + 2 < args.size()) {
+      return RunUiPackUpToDate(args[i + 1], args[i + 2], i + 3 < args.size() ? std::atoi(args[i + 3].c_str()) : 4);
     }
     if (args[i] == "--install-vendor" && i + 1 < args.size()) {
       bool accepted = false;

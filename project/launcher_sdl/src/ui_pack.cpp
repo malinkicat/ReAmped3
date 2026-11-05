@@ -605,6 +605,19 @@ bool UpToDate(const Options& o) {
       !sys::ReadFile(launcher::JoinPath(o.textures_dir, "pack.txt"), stamp)) {
     return false;
   }
+  // Its images still there (deleted by hand, or a folder copied without
+  // them): at least 9 in 10 of the ones it was made with (pack_files.txt),
+  // or 100 for a pack from before that file (~600 made).
+  std::vector<std::string> files;
+  std::string made;
+  int expected = 100;
+  if (sys::ReadFile(launcher::JoinPath(o.textures_dir, "pack_files.txt"), made) && std::atoi(made.c_str()) > 0) {
+    expected = std::atoi(made.c_str());
+  }
+  if (!sys::ListFiles(launcher::JoinPath(o.textures_dir, "replace"), files) ||
+      int(files.size()) < expected * 9 / 10) {
+    return false;
+  }
   auto without_times = [](const std::string& text) {
     // "ReAmped 3 sharp UI pack N xS" (version dropped), then "name size time" lines (time dropped).
     std::string out;
@@ -839,6 +852,8 @@ bool Build(const Options& o, Progress& progress, const std::atomic<bool>& cancel
   std::string stamp_text = StampText(o.scale, StampLines(o.game_dir));
   if (retry) stamp_text += "partial " + std::to_string(tries + 1) + " (" + std::to_string(copied) + " of " +
                            std::to_string(entries.size()) + ")\n";
+  std::vector<std::string> made;
+  if (sys::ListFiles(current, made)) sys::WriteFile(JoinPath(o.textures_dir, "pack_files.txt"), std::to_string(made.size()) + "\n");
   sys::WriteFile(JoinPath(o.textures_dir, "pack.txt"), stamp_text);
   // work\ only carries a cancelled or partial build on (~1 GB of 4x images):
   // a new pack comes from other game files or another scale, which start over.

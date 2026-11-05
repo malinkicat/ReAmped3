@@ -840,7 +840,7 @@ void Activate(App& a) {
   switch (a.focus) {
     case Item::GameFolder: OpenPicker(a); break;
     case Item::Fullscreen: a.st.fullscreen = !a.st.fullscreen; break;
-    case Item::SharpUi: a.st.sharp_ui = !a.st.sharp_ui; break;
+    case Item::SharpUi: a.st.sharp_ui = !a.st.sharp_ui; a.pack_checked.clear(); break;
     case Item::ReampedLogo: a.st.reamped_logo = !a.st.reamped_logo; break;
     case Item::Tearing: a.st.allow_tearing = !a.st.allow_tearing; break;
     case Item::SkipIntro: a.st.skip_intro = !a.st.skip_intro; break;
