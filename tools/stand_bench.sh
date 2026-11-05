@@ -35,7 +35,10 @@ card() {
   python3 - "$1" <<'PY'
 import sys
 from PIL import Image, ImageStat
-im = Image.open(sys.argv[1]).convert('L').resize((1280, 720)).crop((100, 150, 300, 230))
+im = Image.open(sys.argv[1]).convert('L')
+# The card sits further in on an ultrawide screen (the UI keeps 16:9 in the middle).
+box = (330, 170, 530, 250) if im.width / im.height > 2.0 else (100, 150, 300, 230)
+im = im.resize((1280, 720)).crop(box)
 sys.exit(0 if ImageStat.Stat(im).mean[0] < 42 else 1)  # card ~33, map 52-72
 PY
 }
