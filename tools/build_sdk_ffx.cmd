@@ -21,7 +21,18 @@ if /i "%SDK_VARIANT%"=="test" (
   set DEFINES=%SDK_TEST_DEFINES%
 )
 cd /d "%SRC%"
-cmake --preset win-amd64 -B %TREE% -DCMAKE_C_COMPILER="%LLVM%\clang.exe" -DCMAKE_CXX_COMPILER="%LLVM%\clang++.exe" "-DCMAKE_C_FLAGS=-march=x86-64-v3 -gcodeview -gline-tables-only" "-DCMAKE_CXX_FLAGS=-march=x86-64-v3 -gcodeview -gline-tables-only %DEFINES%" -DCMAKE_SHARED_LINKER_FLAGS=-g -DREXGLUE_ENABLE_FIDELITYFX=ON -DREXGLUE_ENABLE_DLSS=ON || exit /b 1
+rem SDK_RELEASE=1: the DLLs for a release zip (no line tables or PDB link).
+rem SDK_DLSS=1: NVIDIA DLSS built in (DLAA, withdrawn; off by default so a
+rem release never carries it).
+set DBG=-gcodeview -gline-tables-only
+set LDBG=-g
+if "%SDK_RELEASE%"=="1" (
+  set DBG=
+  set LDBG=
+)
+set DLSS=OFF
+if "%SDK_DLSS%"=="1" set DLSS=ON
+cmake --preset win-amd64 -B %TREE% -DCMAKE_C_COMPILER="%LLVM%\clang.exe" -DCMAKE_CXX_COMPILER="%LLVM%\clang++.exe" "-DCMAKE_C_FLAGS=-march=x86-64-v3 %DBG%" "-DCMAKE_CXX_FLAGS=-march=x86-64-v3 %DBG% %DEFINES%" "-DCMAKE_SHARED_LINKER_FLAGS=%LDBG%" -DREXGLUE_ENABLE_FIDELITYFX=ON -DREXGLUE_ENABLE_DLSS=%DLSS% || exit /b 1
 cmake --build %TREE% --config Release --target rexruntime rexgpu-xenos --parallel %1 || exit /b 1
 for %%d in (rexruntime rexgpu-xenos) do (
   copy /y out\win-amd64\Release\%%d.dll "%~dp0..\%DEST%\%%d.dll" >nul || exit /b 1
