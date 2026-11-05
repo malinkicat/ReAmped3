@@ -1588,7 +1588,7 @@ void DrawMain(App& a) {
   CheckRow(a, Item::SkipIntro, 414, "Skip intro movies", a.st.skip_intro);
   a.L -= 150;
   const bool single_pass = a.st.single_pass;
-  CheckRow(a, Item::SinglePass, 440, "Fast single-pass rendering (busy scenes)",
+  CheckRow(a, Item::SinglePass, 440, "Fast single-pass rendering",
            a.st.single_pass);
   if (a.st.single_pass != single_pass) SinglePassChanged(a);  // clicked
 
