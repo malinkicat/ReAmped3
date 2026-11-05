@@ -59,7 +59,19 @@ done
 [ $moved = 1 ] || { echo "$label: the map cursor never reached Loveseat (private_work/stand_map1.png); not measured"; exit 1; }
 [ -n "$STAND_ROUTE_ONLY" ] && { echo "$label: route ok (cursor on Loveseat), stopping before the drop"; exit 0; }
 # STAND_PROFILE=N: also a CPU profile of N s from 3 s after the drop (build/cpu_profile.csv, tools/cpu_profile.py).
-tools/pad.sh a "wait 3000" ${STAND_PROFILE:+"profile $STAND_PROFILE"} "stick 0 -1 $(( (secs + 20) * 1000 ))"; sleep 12
+# STAND_RIDE=1: ride down from the drop as a player does instead of standing
+# (the Deck bench's BENCH_MOVES=ride: forward, carve left, jump with a flip,
+# carve right, jump with a flip, in the same order every run).
+if [ -n "$STAND_RIDE" ]; then
+  moves=(a)
+  for n in 1 2 3 4 5 6; do
+    moves+=("stick 0 1 3000" "stick -0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500"
+            "stick 0.8 0.6 2000" "a 700" "stick 0 1 900" "stick 0 1 1500")
+  done
+  tools/pad.sh "${moves[@]}"; sleep 12
+else
+  tools/pad.sh a "wait 3000" ${STAND_PROFILE:+"profile $STAND_PROFILE"} "stick 0 -1 $(( (secs + 20) * 1000 ))"; sleep 12
+fi
 # (private_work/stand_view.png: what was measured.)
 where=""
 tools/shot.sh stand_view >/dev/null 2>&1

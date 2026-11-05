@@ -43,7 +43,7 @@ set FFX_DLL=%TREE%\_deps\fidelityfx-src\PrebuiltSignedDLL\amd_fidelityfx_dx12.dl
 if not exist "%FFX_DLL%" set FFX_DLL=bin\amd_fidelityfx_dx12.dll
 copy /y "%FFX_DLL%" "%~dp0..\%DEST%\" >nul || exit /b 1
 rem NVIDIA DLSS runtime (fetched by cmake/rexglue_dlss.cmake; NVIDIA RTX SDKs licence).
-if exist %TREE%\_deps\dlss_sdk\bin\nvngx_dlss.dll copy /y %TREE%\_deps\dlss_sdk\bin\nvngx_dlss.dll "%~dp0..\%DEST%\" >nul
+if "%DLSS%"=="ON" if exist %TREE%\_deps\dlss_sdk\bin\nvngx_dlss.dll copy /y %TREE%\_deps\dlss_sdk\bin\nvngx_dlss.dll "%~dp0..\%DEST%\" >nul
 if /i "%SDK_VARIANT%"=="test" goto done
 rem Also keep them in project\sdk-bin, which the game build copies next to the exe.
 for %%d in (out\win-amd64\Release\rexruntime.dll out\win-amd64\Release\rexgpu-xenos.dll "%FFX_DLL%") do (
